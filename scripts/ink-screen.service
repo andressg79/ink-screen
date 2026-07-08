@@ -1,0 +1,18 @@
+[Unit]
+Description=Servicio de Pantalla E-Ink y API REST
+After=network.target
+
+[Service]
+Type=simple
+User=andres
+WorkingDirectory=/home/andres/ink-screen
+Environment=PYTHONUNBUFFERED=1
+Environment=INK_SCREEN_MOCK=0
+Environment=PYTHONPATH=/home/andres/ink-screen
+Environment=INK_SCREEN_TZ=America/Montevideo
+ExecStart=/home/andres/ink-screen/venv/bin/python3 src/main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

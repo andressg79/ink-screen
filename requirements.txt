@@ -1,0 +1,11 @@
+# Core API Services
+fastapi>=0.110.0
+uvicorn>=0.28.0
+requests>=2.31.0
+
+# Rendering
+Pillow>=10.2.0
+
+# Testing
+pytest>=8.0.0
+httpx>=0.27.0

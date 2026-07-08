@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+
+# Pytest / Coverage / Ruff
+.cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Logs
+*.log
+
+# Antigravity/Gemini (local execution traces/scratch files in project root, if any)
+.gemini/
+.DS_Store
