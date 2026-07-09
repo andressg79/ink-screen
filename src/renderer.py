@@ -340,10 +340,35 @@ class ScreenRenderer:
         # Stays inside the inner border at HEIGHT - 8 = 120
         draw.rectangle([(7, 106), (WIDTH - 8, 120)], fill=0)
 
-        footer_text = footer if footer else "⌛ [ ESPERANDO... ]"
-        footer_width = draw.textlength(footer_text, font=font_s)
-        footer_x = (WIDTH - footer_width) // 2
-        draw.text((footer_x, 108), footer_text, font=font_s, fill=255)
+        # Parse emoji and text for consistent rendering
+        if not footer:
+            emoji_char = "⌛"
+            display_text = "[ ESPERANDO... ]"
+        else:
+            # If the first character is non-ASCII (like an emoji), separate it
+            if len(footer) > 0 and ord(footer[0]) > 127:
+                emoji_char = footer[0]
+                display_text = footer[1:].strip()
+            else:
+                emoji_char = ""
+                display_text = footer
+
+        # Draw the footer elements
+        if self.emoji_font_path and emoji_char:
+            font_emoji_s = self.get_emoji_font(10)
+            emoji_width = draw.textlength(emoji_char, font=font_emoji_s)
+            text_width = draw.textlength(display_text, font=font_s)
+            combined_width = emoji_width + 4 + text_width
+            footer_x = (WIDTH - combined_width) // 2
+            
+            draw.text((footer_x, 108), emoji_char, font=font_emoji_s, fill=255)
+            draw.text((footer_x + emoji_width + 4, 108), display_text, font=font_s, fill=255)
+        else:
+            # Fallback if no emoji font is installed or no emoji is present
+            full_text = f"{emoji_char} {display_text}".strip()
+            footer_width = draw.textlength(full_text, font=font_s)
+            footer_x = (WIDTH - footer_width) // 2
+            draw.text((footer_x, 108), full_text, font=font_s, fill=255)
 
         return img
 
