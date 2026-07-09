@@ -10,12 +10,14 @@ def run_before_and_after_tests():
     # Setup: Reset shared state
     state.custom_message = None
     state.custom_message_expiry = None
+    state.clear_alert()
     state.force_refresh_event.clear()
     state.refresh_count = 0
     yield
     # Teardown: Reset shared state
     state.custom_message = None
     state.custom_message_expiry = None
+    state.clear_alert()
     state.force_refresh_event.clear()
 
 def test_read_root():
@@ -89,3 +91,87 @@ def test_force_refresh():
     
     # Assert refresh event triggered
     assert state.force_refresh_event.is_set()
+
+def test_post_alert_success():
+    payload = {
+        "title": "Alerta de Fuego",
+        "text": "Se detectó humo en el sector 4.",
+        "image_id": 1,
+        "duration": 30,
+        "footer": "[A] Silenciar"
+    }
+    response = client.post("/api/alert", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["title"] == "Alerta de Fuego"
+    assert data["text"] == "Se detectó humo en el sector 4."
+    assert data["image_id"] == 1
+    assert data["duration"] == 30
+    assert data["footer"] == "[A] Silenciar"
+    
+    # Assert state is updated
+    assert state.alert_title == "Alerta de Fuego"
+    assert state.alert_text == "Se detectó humo en el sector 4."
+    assert state.alert_image_id == 1
+    assert state.alert_footer == "[A] Silenciar"
+    assert state.alert_expiry is not None
+    assert state.force_refresh_event.is_set()
+
+def test_post_alert_conflict():
+    payload1 = {
+        "title": "Alerta 1",
+        "text": "Mensaje 1",
+        "image_id": 3,
+        "duration": 10
+    }
+    response1 = client.post("/api/alert", json=payload1)
+    assert response1.status_code == 200
+    
+    # Attempt to post a second alert while first is active
+    payload2 = {
+        "title": "Alerta 2",
+        "text": "Mensaje 2",
+        "image_id": 4,
+        "duration": 15
+    }
+    response2 = client.post("/api/alert", json=payload2)
+    assert response2.status_code == 409
+    assert "Ya hay una alerta activa" in response2.json()["detail"]
+
+def test_clear_alert():
+    # Setup active alert
+    state.alert_title = "Alerta temporal"
+    state.alert_text = "Se va a borrar"
+    state.alert_image_id = 2
+    state.alert_expiry = 9999999999.0
+    state.force_refresh_event.clear()
+    
+    response = client.post("/api/alert/clear")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    
+    # Assert cleared
+    assert state.alert_title is None
+    assert state.alert_text is None
+    assert state.alert_image_id is None
+    assert state.alert_expiry is None
+    assert state.force_refresh_event.is_set()
+
+def test_status_with_alert():
+    payload = {
+        "title": "Status Alert",
+        "text": "Alerta activa",
+        "image_id": 5,
+        "duration": 60
+    }
+    client.post("/api/alert", json=payload)
+    
+    response = client.get("/api/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["alert_active"] is True
+    assert data["alert_title"] == "Status Alert"
+    assert data["alert_text"] == "Alerta activa"
+    assert data["alert_image_id"] == 5
+    assert data["alert_expires_in"] > 0.0
