@@ -1,0 +1,21 @@
+meta {
+  name: Post Alert
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://orangepirv2.local:8000/api/alert
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "title": "Alerta de Sistema",
+    "text": "Se ha detectado una anomalia en el reactor central. ¡Evacuar inmediatamente!",
+    "image_id": 3,
+    "duration": 30,
+    "footer": "⌛ [ ESPERANDO ACCION... ]"
+  }
+}

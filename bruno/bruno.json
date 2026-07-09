@@ -1,0 +1,9 @@
+{
+  "name": "Ink Screen API",
+  "version": "1",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
