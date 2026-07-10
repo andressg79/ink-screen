@@ -8,15 +8,19 @@ Este documento define la biblioteca de sprites pixel art disponibles y el contra
 
 Las alertas de pantalla completa muestran un retrato pixel art monocromático (blanco y negro) en el lado izquierdo. El retrato está definido originalmente en una rejilla de **32x32 píxeles** y se escala a **64x64 píxeles** usando interpolación de vecindario más cercano para preservar el estilo retro 8-bits.
 
-Están disponibles los siguientes identificadores numéricos (`image_id`):
+Están disponibles los siguientes personajes para el campo `image_id`, los cuales se pueden enviar tanto por su ID numérico (entero) como por su nombre (string):
 
-| ID | Nombre | Descripción | Vista Previa |
-| :--- | :--- | :--- | :--- |
-| **1** | `knight` | Casco de caballero clásico con visor y pluma superior. | Caballero retro |
-| **2** | `mage` | Mago clásico con sombrero puntiagudo y barba. | Mago retro |
-| **3** | `slime` | Monstruo slime amigable con ojos grandes y sonrisa. *(Valor por defecto)* | Slime RPG |
-| **4** | `robot` | Cara de robot de 8-bits con antena superior. | Robot retro |
-| **5** | `heart` | Corazón clásico de RPG para estados de salud o alertas de amor. | Corazón 8-bits |
+| ID | Nombre | Descripción |
+| :--- | :--- | :--- |
+| **1** | `caballero` | Casco de caballero con visor abierto, hablando en plano medio corto. |
+| **2** | `brujo` | Mago con capucha larga y ojos oscuros hablando. |
+| **3** | `bruja` | Bruja con sombrero puntiagudo y boca abierta hablando. |
+| **4** | `nigromante` | Esqueleto con capucha oscura y mandíbula abierta. |
+| **5** | `elfo` | Elfo con orejas puntiagudas y cabello liso hablando. |
+| **6** | `ogro` | Ogro de mandíbula ancha con colmillo central visible hablando. |
+| **7** | `enano` / `enano minero` | Enano con casco de minero y gran barba tupida hablando. |
+| **8** | `doncella` | Doncella con cabello largo y tiara en la frente hablando. |
+| **9** | `paisano` | Aldeano/paisano con gorra simple y ropa modesta hablando. *(Valor por defecto)* |
 
 ---
 
@@ -34,7 +38,7 @@ Todos los endpoints tienen el prefijo `/api`.
 {
   "title": "Alerta de Sistema",
   "text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
-  "image_id": 1,
+  "image_id": "elfo",
   "duration": 30,
   "footer": "⌛ [ ESPERANDO ACCION... ]"
 }
@@ -42,7 +46,7 @@ Todos los endpoints tienen el prefijo `/api`.
 
 *   `title` (Requerido, string): Título centrado en la parte superior. Largo: **1 a 25 caracteres**.
 *   `text` (Requerido, string): Mensaje principal a mostrar. Largo: **1 a 120 caracteres** (con ajuste de línea automático).
-*   `image_id` (Requerido, entero): ID del retrato pixel art de la biblioteca. Rango: **1 a 5**.
+*   `image_id` (Requerido, entero o string): ID numérico (1-9) o nombre string del retrato de la biblioteca.
 *   `duration` (Requerido, entero): Duración de visualización en segundos. Rango: **5 a 86400 segundos** (24 horas).
 *   `footer` (Opcional, string): Texto personalizado para el pie de pantalla invertido. Largo: **máximo 40 caracteres**. Por defecto: `"⌛ [ ESPERANDO... ]"`.
 
