@@ -33,7 +33,7 @@ def run_live_tests():
         "title": "Alerta de Red",
         "text": "Prueba de integración remota en ejecución. Todo marcha perfecto.",
         "image_id": "elfo",
-        "duration": 60,
+        "duration": 120,
         "footer": "⌛ [ PROBANDO RED... ]"
     }
     res = requests.post(f"{DEVICE_URL}/api/alert", json=payload)
