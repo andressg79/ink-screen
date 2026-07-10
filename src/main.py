@@ -93,7 +93,7 @@ async def display_worker():
                 alert_dict = {
                     "title": state.alert_title,
                     "text": state.alert_text,
-                    "image_id": state.alert_image_id,
+                    "avatar": state.alert_avatar,
                     "footer": state.alert_footer
                 }
 

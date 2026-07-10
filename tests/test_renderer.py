@@ -55,7 +55,7 @@ def test_renderer_with_alert():
     alert = {
         "title": "Alerta de Prueba",
         "text": "Este es un texto para verificar el renderizado de la alerta RPG retro a pantalla completa.",
-        "image_id": 1,
+        "avatar": "caballero",
         "footer": "[A] Continuar"
     }
     
@@ -68,11 +68,11 @@ def test_renderer_with_4shade_character_names():
     mock_system = {}
     mock_weather = {}
     
-    # Render with string-based image ID "elfo"
+    # Render with string-based avatar "elfo"
     alert = {
         "title": "Elf talking",
         "text": "The elf winks and says hello.",
-        "image_id": "elfo"
+        "avatar": "elfo"
     }
     img = renderer.render(mock_system, mock_weather, alert=alert)
     assert img.size == (296, 128)

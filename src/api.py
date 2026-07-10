@@ -24,7 +24,7 @@ class MessageResponse(BaseModel):
 class AlertRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=25, description="Título centrado de la alerta RPG.")
     text: str = Field(..., min_length=1, max_length=120, description="Texto del cuerpo de la alerta RPG.")
-    image_id: Union[int, str] = Field(..., description="ID numérico (1-9) o nombre del personaje (ej. 'caballero', 'elfo').")
+    avatar: str = Field(..., description="Nombre del avatar RPG a mostrar (nombre del archivo .txt en assets).")
     duration: int = Field(..., ge=5, le=86400, description="Duración en segundos para mostrar la alerta.")
     footer: Optional[str] = Field(None, max_length=40, description="Texto personalizado para el footer de la alerta RPG (opcional).")
 
@@ -33,7 +33,7 @@ class AlertResponse(BaseModel):
     message: str
     title: str
     text: str
-    image_id: Union[int, str]
+    avatar: str
     duration: int
     expires_at: float
     footer: Optional[str] = None
@@ -45,7 +45,7 @@ class StatusResponse(BaseModel):
     alert_active: bool = False
     alert_title: Optional[str] = None
     alert_text: Optional[str] = None
-    alert_image_id: Optional[Union[int, str]] = None
+    alert_avatar: Optional[str] = None
     alert_expires_in: Optional[float] = None
     refresh_count: int
     last_full_refresh: Optional[str] = None
@@ -69,14 +69,14 @@ class DisplayState:
         # RPG Alert state fields
         self.alert_title: Optional[str] = None
         self.alert_text: Optional[str] = None
-        self.alert_image_id: Optional[int] = None
+        self.alert_avatar: Optional[str] = None
         self.alert_footer: Optional[str] = None
         self.alert_expiry: Optional[float] = None
 
     def clear_alert(self):
         self.alert_title = None
         self.alert_text = None
-        self.alert_image_id = None
+        self.alert_avatar = None
         self.alert_footer = None
         self.alert_expiry = None
 
@@ -127,7 +127,7 @@ async def post_alert(req: AlertRequest):
     Publica una alerta a pantalla completa con estilo RPG retro y un retrato de pixel art.
     Si ya hay una alerta activa en pantalla, se rechaza con código 409 Conflict.
     """
-    from src.pixel_art import SPRITES, SPRITE_NAMES
+    from src.pixel_art import SPRITES, load_sprites
 
     now = time.time()
     if state.alert_expiry and now < state.alert_expiry:
@@ -137,28 +137,23 @@ async def post_alert(req: AlertRequest):
             detail="Ya hay una alerta activa en pantalla. Espere a que expire o bórrela manualmente."
         )
 
-    # Validate and resolve image_id
-    resolved_id = None
-    if isinstance(req.image_id, int):
-        if req.image_id in SPRITES:
-            resolved_id = req.image_id
-    elif isinstance(req.image_id, str):
-        name_clean = req.image_id.lower().strip()
-        if name_clean in SPRITE_NAMES:
-            resolved_id = SPRITE_NAMES[name_clean]
+    # Validate and resolve avatar name
+    avatar_clean = req.avatar.lower().strip()
+    if avatar_clean not in SPRITES:
+        load_sprites()
 
-    if resolved_id is None:
-        valid_names = ", ".join(SPRITE_NAMES.keys())
+    if avatar_clean not in SPRITES:
+        valid_avatars = ", ".join(sorted(SPRITES.keys()))
         raise HTTPException(
             status_code=422,
-            detail=f"ID de imagen '{req.image_id}' inválido. Debe ser un entero entre 1 y {len(SPRITES)} o uno de los siguientes nombres: {valid_names}."
+            detail=f"Avatar '{req.avatar}' no encontrado en los assets de texto plano. Avatares disponibles: {valid_avatars}."
         )
 
-    logger.info(f"API: Recibida alerta RPG: '{req.title}' - '{req.text}' (personaje={req.image_id}, duración={req.duration}s)")
+    logger.info(f"API: Recibida alerta RPG: '{req.title}' - '{req.text}' (avatar={avatar_clean}, duración={req.duration}s)")
     
     state.alert_title = req.title
     state.alert_text = req.text
-    state.alert_image_id = resolved_id
+    state.alert_avatar = avatar_clean
     state.alert_footer = req.footer
     state.alert_expiry = now + req.duration
 
@@ -170,7 +165,7 @@ async def post_alert(req: AlertRequest):
         message="Alerta recibida. Actualizando pantalla...",
         title=req.title,
         text=req.text,
-        image_id=req.image_id,
+        avatar=avatar_clean,
         duration=req.duration,
         expires_at=state.alert_expiry,
         footer=req.footer
@@ -232,7 +227,7 @@ async def get_status():
         alert_active=alert_active,
         alert_title=state.alert_title,
         alert_text=state.alert_text,
-        alert_image_id=state.alert_image_id,
+        alert_avatar=state.alert_avatar,
         alert_expires_in=alert_expires_in,
         refresh_count=state.refresh_count,
         last_full_refresh=state.last_full_refresh,

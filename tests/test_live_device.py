@@ -32,7 +32,7 @@ def run_live_tests():
     payload = {
         "title": "Alerta de Red",
         "text": "Prueba de integración remota en ejecución. Todo marcha perfecto.",
-        "image_id": "elfo",
+        "avatar": "elfo",
         "duration": 120,
         "footer": "⌛ [ PROBANDO RED... ]"
     }
@@ -57,7 +57,7 @@ def run_live_tests():
     print("✅ Alerta activa en estado:")
     print(f"   Título en pantalla: '{data.get('alert_title')}'")
     print(f"   Texto en pantalla: '{data.get('alert_text')}'")
-    print(f"   ID de imagen: {data.get('alert_image_id')}")
+    print(f"   Avatar: {data.get('alert_avatar')}")
     print(f"   Tiempo restante: {data.get('alert_expires_in') or 0.0:.2f}s")
 
     # 4. Probar manejo de conflictos (superposición de alertas)
@@ -65,7 +65,7 @@ def run_live_tests():
     conflict_payload = {
         "title": "Alerta Conflicto",
         "text": "Este texto no debería mostrarse.",
-        "image_id": 1,
+        "avatar": "caballero",
         "duration": 10
     }
     res = requests.post(f"{DEVICE_URL}/api/alert", json=conflict_payload)

@@ -8,19 +8,19 @@ Este documento define la biblioteca de sprites pixel art disponibles y el contra
 
 Las alertas de pantalla completa muestran un retrato pixel art monocromático (blanco y negro) en el lado izquierdo. El retrato está definido originalmente en una rejilla de **32x32 píxeles** y se escala a **64x64 píxeles** usando interpolación de vecindario más cercano para preservar el estilo retro 8-bits.
 
-Están disponibles los siguientes personajes para el campo `image_id`, los cuales se pueden enviar tanto por su ID numérico (entero) como por su nombre (string):
+Están disponibles los siguientes personajes para el campo `avatar` (corresponden a los archivos `.txt` cargados en la carpeta `assets/`):
 
-| ID | Nombre | Descripción |
+| Nombre | Archivo | Descripción |
 | :--- | :--- | :--- |
-| **1** | `caballero` | Casco de caballero con visor abierto, hablando en plano medio corto. |
-| **2** | `brujo` | Mago con capucha larga y ojos oscuros hablando. |
-| **3** | `bruja` | Bruja con sombrero puntiagudo y boca abierta hablando. |
-| **4** | `nigromante` | Esqueleto con capucha oscura y mandíbula abierta. |
-| **5** | `elfo` | Elfo con orejas puntiagudas y cabello liso hablando. |
-| **6** | `ogro` | Ogro de mandíbula ancha con colmillo central visible hablando. |
-| **7** | `enano` / `enano minero` | Enano con casco de minero y gran barba tupida hablando. |
-| **8** | `doncella` | Doncella con cabello largo y tiara en la frente hablando. |
-| **9** | `paisano` | Aldeano/paisano con gorra simple y ropa modesta hablando. *(Valor por defecto)* |
+| `caballero` | `assets/caballero.txt` | Casco de caballero con visor abierto, hablando en plano medio corto. |
+| `brujo` | `assets/brujo.txt` | Mago con capucha larga y ojos oscuros hablando. |
+| `bruja` | `assets/bruja.txt` | Bruja con sombrero puntiagudo y boca abierta hablando. |
+| `nigromante` | `assets/nigromante.txt` | Esqueleto con capucha oscura y mandíbula abierta. |
+| `elfo` | `assets/elfo.txt` | Elfo con orejas puntiagudas y cabello liso hablando. |
+| `ogro` | `assets/ogro.txt` | Ogro de mandíbula ancha con colmillo central visible hablando. |
+| `enano` | `assets/enano.txt` | Enano con casco de minero y gran barba tupida hablando. |
+| `doncella` | `assets/doncella.txt` | Doncella con cabello largo y tiara en la frente hablando. |
+| `paisano` | `assets/paisano.txt` | Aldeano/paisano con gorra simple y ropa modesta hablando. *(Valor por defecto)* |
 
 ---
 
@@ -38,7 +38,7 @@ Todos los endpoints tienen el prefijo `/api`.
 {
   "title": "Alerta de Sistema",
   "text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
-  "image_id": "elfo",
+  "avatar": "elfo",
   "duration": 30,
   "footer": "⌛ [ ESPERANDO ACCION... ]"
 }
@@ -46,7 +46,7 @@ Todos los endpoints tienen el prefijo `/api`.
 
 *   `title` (Requerido, string): Título centrado en la parte superior. Largo: **1 a 25 caracteres**.
 *   `text` (Requerido, string): Mensaje principal a mostrar. Largo: **1 a 120 caracteres** (con ajuste de línea automático).
-*   `image_id` (Requerido, entero o string): ID numérico (1-9) o nombre string del retrato de la biblioteca.
+*   `avatar` (Requerido, string): Nombre del avatar RPG a mostrar (nombre del archivo `.txt` en la carpeta `assets/`, sin extensión).
 *   `duration` (Requerido, entero): Duración de visualización en segundos. Rango: **5 a 86400 segundos** (24 horas).
 *   `footer` (Opcional, string): Texto personalizado para el pie de pantalla invertido. Largo: **máximo 40 caracteres**. Por defecto: `"⌛ [ ESPERANDO... ]"`.
 
@@ -58,7 +58,7 @@ Todos los endpoints tienen el prefijo `/api`.
       "message": "Alerta recibida. Actualizando pantalla...",
       "title": "Alerta de Sistema",
       "text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
-      "image_id": 1,
+      "avatar": "caballero",
       "duration": 30,
       "expires_at": 1783300400.0,
       "footer": "⌛ [ ESPERANDO ACCION... ]"
@@ -104,7 +104,7 @@ Todos los endpoints tienen el prefijo `/api`.
   "alert_active": true,
   "alert_title": "Alerta de Sistema",
   "alert_text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
-  "alert_image_id": 1,
+  "alert_avatar": "caballero",
   "alert_expires_in": 18.5,
   "refresh_count": 42,
   "last_full_refresh": "2026-07-09 01:40:02",

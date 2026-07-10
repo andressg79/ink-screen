@@ -80,7 +80,7 @@ class ScreenRenderer:
             return self.render_alert(
                 title=alert.get("title", ""),
                 text=alert.get("text", ""),
-                image_id=alert.get("image_id", 3),
+                avatar=alert.get("avatar", "paisano"),
                 footer=alert.get("footer")
             )
 
@@ -256,7 +256,7 @@ class ScreenRenderer:
 
         return img
 
-    def render_alert(self, title: str, text: str, image_id: int, footer: str = None) -> Image.Image:
+    def render_alert(self, title: str, text: str, avatar: str, footer: str = None) -> Image.Image:
         """
         Renders a full-screen alert message with a retro RPG textbox style.
         """
@@ -288,7 +288,7 @@ class ScreenRenderer:
 
         try:
             # get_pixel_art_image now directly returns the pre-dithered 64x64 image
-            sprite_img = get_pixel_art_image(image_id)
+            sprite_img = get_pixel_art_image(avatar)
             img.paste(sprite_img, (12, 34))
         except Exception as e:
             logger.error(f"Error renderizando retrato RPG pixel art: {e}")
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     mock_alert = {
         "title": "Alerta de Sistema",
         "text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
-        "image_id": 1,
+        "avatar": "caballero",
         "footer": "⌛ [ ESPERANDO ACCION... ]"
     }
     img_alert = renderer.render(mock_system, mock_weather, alert=mock_alert)
