@@ -62,3 +62,18 @@ def test_renderer_with_alert():
     img = renderer.render(mock_system, mock_weather, alert=alert)
     assert img.size == (296, 128)
     assert img.mode == "1"
+
+def test_renderer_with_4shade_character_names():
+    renderer = ScreenRenderer()
+    mock_system = {}
+    mock_weather = {}
+    
+    # Render with string-based image ID "elfo"
+    alert = {
+        "title": "Elf talking",
+        "text": "The elf winks and says hello.",
+        "image_id": "elfo"
+    }
+    img = renderer.render(mock_system, mock_weather, alert=alert)
+    assert img.size == (296, 128)
+    assert img.mode == "1"

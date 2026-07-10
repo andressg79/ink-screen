@@ -1,7 +1,7 @@
 import time
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Union
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ class MessageResponse(BaseModel):
 class AlertRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=25, description="Título centrado de la alerta RPG.")
     text: str = Field(..., min_length=1, max_length=120, description="Texto del cuerpo de la alerta RPG.")
-    image_id: int = Field(..., ge=1, le=5, description="ID de la imagen pixel art a mostrar (1: Knight, 2: Mage, 3: Slime, 4: Robot, 5: Heart).")
+    image_id: Union[int, str] = Field(..., description="ID numérico (1-9) o nombre del personaje (ej. 'caballero', 'elfo').")
     duration: int = Field(..., ge=5, le=86400, description="Duración en segundos para mostrar la alerta.")
     footer: Optional[str] = Field(None, max_length=40, description="Texto personalizado para el footer de la alerta RPG (opcional).")
 
@@ -33,7 +33,7 @@ class AlertResponse(BaseModel):
     message: str
     title: str
     text: str
-    image_id: int
+    image_id: Union[int, str]
     duration: int
     expires_at: float
     footer: Optional[str] = None
@@ -45,7 +45,7 @@ class StatusResponse(BaseModel):
     alert_active: bool = False
     alert_title: Optional[str] = None
     alert_text: Optional[str] = None
-    alert_image_id: Optional[int] = None
+    alert_image_id: Optional[Union[int, str]] = None
     alert_expires_in: Optional[float] = None
     refresh_count: int
     last_full_refresh: Optional[str] = None
@@ -127,6 +127,8 @@ async def post_alert(req: AlertRequest):
     Publica una alerta a pantalla completa con estilo RPG retro y un retrato de pixel art.
     Si ya hay una alerta activa en pantalla, se rechaza con código 409 Conflict.
     """
+    from src.pixel_art import SPRITES, SPRITE_NAMES
+
     now = time.time()
     if state.alert_expiry and now < state.alert_expiry:
         logger.warning("API: Intento de publicar alerta rechazado (ya hay una alerta activa).")
@@ -135,11 +137,28 @@ async def post_alert(req: AlertRequest):
             detail="Ya hay una alerta activa en pantalla. Espere a que expire o bórrela manualmente."
         )
 
-    logger.info(f"API: Recibida alerta RPG: '{req.title}' - '{req.text}' (duración={req.duration}s)")
+    # Validate and resolve image_id
+    resolved_id = None
+    if isinstance(req.image_id, int):
+        if req.image_id in SPRITES:
+            resolved_id = req.image_id
+    elif isinstance(req.image_id, str):
+        name_clean = req.image_id.lower().strip()
+        if name_clean in SPRITE_NAMES:
+            resolved_id = SPRITE_NAMES[name_clean]
+
+    if resolved_id is None:
+        valid_names = ", ".join(SPRITE_NAMES.keys())
+        raise HTTPException(
+            status_code=422,
+            detail=f"ID de imagen '{req.image_id}' inválido. Debe ser un entero entre 1 y {len(SPRITES)} o uno de los siguientes nombres: {valid_names}."
+        )
+
+    logger.info(f"API: Recibida alerta RPG: '{req.title}' - '{req.text}' (personaje={req.image_id}, duración={req.duration}s)")
     
     state.alert_title = req.title
     state.alert_text = req.text
-    state.alert_image_id = req.image_id
+    state.alert_image_id = resolved_id
     state.alert_footer = req.footer
     state.alert_expiry = now + req.duration
 

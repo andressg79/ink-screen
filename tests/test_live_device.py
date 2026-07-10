@@ -32,7 +32,7 @@ def run_live_tests():
     payload = {
         "title": "Alerta de Red",
         "text": "Prueba de integración remota en ejecución. Todo marcha perfecto.",
-        "image_id": 4,  # Robot
+        "image_id": "elfo",
         "duration": 60,
         "footer": "⌛ [ PROBANDO RED... ]"
     }

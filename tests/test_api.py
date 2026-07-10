@@ -175,3 +175,42 @@ def test_status_with_alert():
     assert data["alert_text"] == "Alerta activa"
     assert data["alert_image_id"] == 5
     assert data["alert_expires_in"] > 0.0
+
+def test_post_alert_string_image_id():
+    payload = {
+        "title": "Alerta Elfo",
+        "text": "El elfo está hablando.",
+        "image_id": "elfo",
+        "duration": 45
+    }
+    response = client.post("/api/alert", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["image_id"] == "elfo"
+    
+    # Assert resolved ID (5) is stored in state
+    assert state.alert_image_id == 5
+
+def test_post_alert_invalid_image_id():
+    # Test invalid string name
+    payload1 = {
+        "title": "Error",
+        "text": "Prueba",
+        "image_id": "orco",
+        "duration": 30
+    }
+    response1 = client.post("/api/alert", json=payload1)
+    assert response1.status_code == 422
+    assert "inválido" in response1.json()["detail"]
+
+    # Test invalid integer ID
+    payload2 = {
+        "title": "Error",
+        "text": "Prueba",
+        "image_id": 99,
+        "duration": 30
+    }
+    response2 = client.post("/api/alert", json=payload2)
+    assert response2.status_code == 422
+    assert "inválido" in response2.json()["detail"]

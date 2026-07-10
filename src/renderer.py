@@ -287,10 +287,9 @@ class ScreenRenderer:
         draw.rectangle([(11, 33), (77, 99)], outline=0, width=1)
 
         try:
-            sprite_32 = get_pixel_art_image(image_id)
-            # Scale 32x32 to 64x64 using NEAREST interpolation for retro pixel look
-            sprite_64 = sprite_32.resize((64, 64), Image.NEAREST)
-            img.paste(sprite_64, (12, 34))
+            # get_pixel_art_image now directly returns the pre-dithered 64x64 image
+            sprite_img = get_pixel_art_image(image_id)
+            img.paste(sprite_img, (12, 34))
         except Exception as e:
             logger.error(f"Error renderizando retrato RPG pixel art: {e}")
 
