@@ -52,6 +52,8 @@ class StatusResponse(BaseModel):
     last_partial_refresh: Optional[str] = None
     system: dict
     weather: dict
+    miner: Optional[dict] = None
+    screen: Optional[dict] = None
 
 # Shared State Class for Thread-Safe & Async Coordination
 class DisplayState:
@@ -61,6 +63,7 @@ class DisplayState:
         self.force_refresh_event = asyncio.Event()
         self.system_metrics: dict = {}
         self.weather_metrics: dict = {}
+        self.miner_metrics: dict = {}
         self.refresh_count: int = 0
         self.last_full_refresh: Optional[str] = None
         self.last_partial_refresh: Optional[str] = None
@@ -220,6 +223,9 @@ async def get_status():
         else:
             alert_active = True
 
+    from src.screen_manager import screen_manager
+    carousel_info = screen_manager.get_carousel_info()
+
     return StatusResponse(
         status="online",
         custom_message=state.custom_message,
@@ -233,5 +239,28 @@ async def get_status():
         last_full_refresh=state.last_full_refresh,
         last_partial_refresh=state.last_partial_refresh,
         system=state.system_metrics,
-        weather=state.weather_metrics
+        weather=state.weather_metrics,
+        miner=state.miner_metrics,
+        screen=carousel_info
     )
+
+@router.post("/screen/{screen_name}")
+async def set_screen(screen_name: str):
+    """
+    Fija una pantalla específica ('system', 'miner') o reanuda la rotación automática ('auto' o 'none').
+    """
+    from src.screen_manager import screen_manager
+    target = None if screen_name.lower() in ("auto", "none", "clear") else screen_name.lower()
+    
+    success = screen_manager.set_forced_screen(target)
+    if not success:
+        available = [s.name for s in screen_manager.screens] + ["auto"]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pantalla '{screen_name}' no válida. Opciones disponibles: {', '.join(available)}"
+        )
+
+    # Disparar refresco inmediato de pantalla
+    state.force_refresh_event.set()
+    mode_str = f"Pantalla fijada a '{target}'" if target else "Rotación automática reanudada"
+    return {"status": "success", "message": f"{mode_str}. Actualizando pantalla..."}
