@@ -93,7 +93,7 @@ Todos los endpoints tienen el prefijo `/api`.
 ### 3. Consultar Estado del Dispositivo
 *   **Método:** `GET`
 *   **Ruta:** `/api/status`
-*   **Descripción:** Devuelve el estado actual de conexión, la telemetría del sistema, el clima almacenado en caché y los detalles de las alertas activas.
+*   **Descripción:** Devuelve el estado actual de conexión, la telemetría del sistema, el clima, las métricas del nodo de minería XMRig, el estado del carrusel de pantallas y las alertas activas.
 
 #### Respuesta (`200 OK`)
 ```json
@@ -101,11 +101,11 @@ Todos los endpoints tienen el prefijo `/api`.
   "status": "online",
   "custom_message": null,
   "custom_message_expires_in": null,
-  "alert_active": true,
-  "alert_title": "Alerta de Sistema",
-  "alert_text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
-  "alert_avatar": "caballero",
-  "alert_expires_in": 18.5,
+  "alert_active": false,
+  "alert_title": null,
+  "alert_text": null,
+  "alert_avatar": null,
+  "alert_expires_in": null,
   "refresh_count": 42,
   "last_full_refresh": "2026-07-09 01:40:02",
   "last_partial_refresh": "2026-07-09 01:45:00",
@@ -123,6 +123,57 @@ Todos los endpoints tienen el prefijo `/api`.
     "icon": "☀️",
     "humidity": "45%",
     "wind": "12 km/h"
+  },
+  "miner": {
+    "status": "MINANDO",
+    "hashrate_10s": 124.5,
+    "hashrate_60s": 121.0,
+    "hashrate_15m": 118.2,
+    "hashrate_max": 148.2,
+    "shares_good": 42,
+    "shares_total": 42,
+    "shares_rejected": 0,
+    "diff": 1280169,
+    "diff_formatted": "1.28M",
+    "pool": "gulf.moneroocean.stream:20128",
+    "uptime": "4h 12m",
+    "algo": "rx/0",
+    "threads": 8,
+    "hugepages": "100%",
+    "paused": false,
+    "raw_error": null
+  },
+  "screen": {
+    "current_name": "system",
+    "current_title": "Sistema y Clima",
+    "current_index": 1,
+    "total_screens": 2,
+    "next_name": "miner",
+    "next_title": "Nodo Minero XMRig",
+    "time_remaining_sec": 45,
+    "rotation_enabled": true,
+    "is_forced": false
   }
 }
 ```
+
+---
+
+### 4. Controlar o Fijar Pantalla del Carrusel
+*   **Método:** `POST`
+*   **Ruta:** `/api/screen/{screen_name}`
+*   **Descripción:** Fija una pantalla específica (ej: `system`, `miner`) o reanuda la alternancia automática (`auto` o `none`).
+
+#### Parámetros de Ruta
+*   `screen_name` (string): Nombre de la pantalla a fijar (`"system"`, `"miner"`) o `"auto"` / `"none"` para volver a la rotación automática cíclica.
+
+#### Respuestas
+*   **`200 OK`**: Pantalla cambiada o rotación reanudada exitosamente.
+    ```json
+    {
+      "status": "success",
+      "message": "Pantalla fijada a 'miner'. Actualizando pantalla..."
+    }
+    ```
+*   **`400 Bad Request`**: Si el nombre de pantalla provisto no existe.
+

@@ -187,3 +187,26 @@ def test_post_alert_invalid_avatar():
     response1 = client.post("/api/alert", json=payload1)
     assert response1.status_code == 422
     assert "no encontrado" in response1.json()["detail"]
+
+def test_set_screen_endpoint():
+    # Set to miner
+    res = client.post("/api/screen/miner")
+    assert res.status_code == 200
+    assert "Pantalla fijada a 'miner'" in res.json()["message"]
+
+    # Check status reports miner as current
+    status_res = client.get("/api/status")
+    assert status_res.status_code == 200
+    data = status_res.json()
+    assert data["screen"]["current_name"] == "miner"
+    assert data["screen"]["is_forced"] is True
+
+    # Reset to auto
+    res_auto = client.post("/api/screen/auto")
+    assert res_auto.status_code == 200
+    assert "Rotación automática reanudada" in res_auto.json()["message"]
+
+    # Invalid screen
+    res_err = client.post("/api/screen/pantalla_fantasma")
+    assert res_err.status_code == 400
+
