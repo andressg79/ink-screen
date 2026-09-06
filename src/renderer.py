@@ -2,6 +2,7 @@ import os
 import logging
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
+from src.pixel_art import get_pixel_art_image
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,15 @@ class ScreenRenderer:
                 logger.error(f"Failed to load Symbola emoji font: {e}")
         return self.get_font(size)
 
-    def render(self, system_metrics: dict, weather_metrics: dict, custom_message: str = None) -> Image.Image:
+    def render(self, system_metrics: dict, weather_metrics: dict, custom_message: str = None, alert: dict = None) -> Image.Image:
+        if alert:
+            return self.render_alert(
+                title=alert.get("title", ""),
+                text=alert.get("text", ""),
+                avatar=alert.get("avatar", "paisano"),
+                footer=alert.get("footer")
+            )
+
         # Create a new white image (1-bit mode: '1')
         img = Image.new("1", (WIDTH, HEIGHT), 255)
         draw = ImageDraw.Draw(img)
@@ -247,6 +256,121 @@ class ScreenRenderer:
 
         return img
 
+    def render_alert(self, title: str, text: str, avatar: str, footer: str = None) -> Image.Image:
+        """
+        Renders a full-screen alert message with a retro RPG textbox style.
+        """
+        # Create a new white image (1-bit mode: '1')
+        img = Image.new("1", (WIDTH, HEIGHT), 255)
+        draw = ImageDraw.Draw(img)
+
+        # 1. RPG Double Border
+        # Outer border (thick, 2px)
+        draw.rectangle([(2, 2), (WIDTH - 3, HEIGHT - 3)], outline=0, width=2)
+        # Inner border (thin, 1px)
+        draw.rectangle([(6, 6), (WIDTH - 7, HEIGHT - 7)], outline=0, width=1)
+
+        # Fonts
+        font_s = self.get_font(10)
+        font_m = self.get_font(12)
+
+        # 2. Centered Title
+        title_width = draw.textlength(title, font=font_m)
+        title_x = (WIDTH - title_width) // 2
+        draw.text((title_x, 10), title, font=font_m, fill=0)
+
+        # Dividing line below title
+        draw.line([(6, 26), (WIDTH - 7, 26)], fill=0, width=1)
+
+        # 3. Portrait Frame & Sprite Paste (Left Column)
+        # Frame outer box (11, 33) to (77, 99) -> 66x66 boundary
+        draw.rectangle([(11, 33), (77, 99)], outline=0, width=1)
+
+        try:
+            # get_pixel_art_image now directly returns the pre-dithered 64x64 image
+            sprite_img = get_pixel_art_image(avatar)
+            img.paste(sprite_img, (12, 34))
+        except Exception as e:
+            logger.error(f"Error renderizando retrato RPG pixel art: {e}")
+
+        # 4. Word-wrapped text (Right Column)
+        # Space X: 84 to 284 (200 pixels width)
+        # Y: 27 to 105 (78 pixels vertical space)
+        def wrap_text(t: str, max_w: int) -> list[str]:
+            words = t.split(" ")
+            lines = []
+            curr = []
+            for w in words:
+                test_line = " ".join(curr + [w])
+                w_len = draw.textlength(test_line, font=font_m)
+                if w_len <= max_w:
+                    curr.append(w)
+                else:
+                    if curr:
+                        lines.append(" ".join(curr))
+                        curr = [w]
+                    else:
+                        lines.append(w)
+                        curr = []
+            if curr:
+                lines.append(" ".join(curr))
+            return lines
+
+        wrapped_lines = wrap_text(text, 200)
+
+        # Centering the text block vertically inside the body space (Y: 27 to 105)
+        line_height = 14
+        total_text_h = len(wrapped_lines) * line_height
+        start_y = max(30, (78 - total_text_h) // 2 + 27)
+
+        y_cursor = start_y
+        for line in wrapped_lines:
+            # Boundary check to prevent writing over the footer dividing line
+            if y_cursor + line_height > 105:
+                break
+            draw.text((84, y_cursor), line, font=font_m, fill=0)
+            y_cursor += line_height
+
+        # 5. Footer area (Y: 105 -> 127)
+        # Footer dividing line at Y=105
+        draw.line([(6, 105), (WIDTH - 7, 105)], fill=0, width=1)
+
+        # Inverted footer block (black background)
+        # Stays inside the inner border at HEIGHT - 8 = 120
+        draw.rectangle([(7, 106), (WIDTH - 8, 120)], fill=0)
+
+        # Parse emoji and text for consistent rendering
+        if not footer:
+            emoji_char = "⌛"
+            display_text = "[ ESPERANDO... ]"
+        else:
+            # If the first character is non-ASCII (like an emoji), separate it
+            if len(footer) > 0 and ord(footer[0]) > 127:
+                emoji_char = footer[0]
+                display_text = footer[1:].strip()
+            else:
+                emoji_char = ""
+                display_text = footer
+
+        # Draw the footer elements
+        if self.emoji_font_path and emoji_char:
+            font_emoji_s = self.get_emoji_font(10)
+            emoji_width = draw.textlength(emoji_char, font=font_emoji_s)
+            text_width = draw.textlength(display_text, font=font_s)
+            combined_width = emoji_width + 4 + text_width
+            footer_x = (WIDTH - combined_width) // 2
+            
+            draw.text((footer_x, 108), emoji_char, font=font_emoji_s, fill=255)
+            draw.text((footer_x + emoji_width + 4, 108), display_text, font=font_s, fill=255)
+        else:
+            # Fallback if no emoji font is installed or no emoji is present
+            full_text = f"{emoji_char} {display_text}".strip()
+            footer_width = draw.textlength(full_text, font=font_s)
+            footer_x = (WIDTH - footer_width) // 2
+            draw.text((footer_x, 108), full_text, font=font_s, fill=255)
+
+        return img
+
 if __name__ == "__main__":
     # Test rendering locally and save the preview
     renderer = ScreenRenderer()
@@ -275,3 +399,14 @@ if __name__ == "__main__":
     img_msg = renderer.render(mock_system, mock_weather, "Alerta: Reinicio programado en 10 minutos!")
     img_msg.save("/tmp/test_message.png")
     print("Test message render saved to /tmp/test_message.png")
+
+    # Render RPG alert message
+    mock_alert = {
+        "title": "Alerta de Sistema",
+        "text": "Se ha detectado una anomalía en el reactor central. ¡Evacuar inmediatamente!",
+        "avatar": "caballero",
+        "footer": "⌛ [ ESPERANDO ACCION... ]"
+    }
+    img_alert = renderer.render(mock_system, mock_weather, alert=mock_alert)
+    img_alert.save("/tmp/test_alert.png")
+    print("Test RPG alert render saved to /tmp/test_alert.png")

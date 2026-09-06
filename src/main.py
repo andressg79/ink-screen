@@ -81,12 +81,29 @@ async def display_worker():
                     state.custom_message = None
                     state.custom_message_expiry = None
 
+            # 3b. Check alert message expiry
+            if state.alert_expiry:
+                if now >= state.alert_expiry:
+                    logger.info("La alerta RPG ha expirado. Limpiando...")
+                    state.clear_alert()
+
+            # Prepare alert dictionary if active
+            alert_dict = None
+            if state.alert_expiry:
+                alert_dict = {
+                    "title": state.alert_title,
+                    "text": state.alert_text,
+                    "avatar": state.alert_avatar,
+                    "footer": state.alert_footer
+                }
+
             # 4. Render image canvas
             logger.info("Renderizando nuevo lienzo de pantalla...")
             img = renderer.render(
                 system_metrics=state.system_metrics,
                 weather_metrics=state.weather_metrics,
-                custom_message=state.custom_message
+                custom_message=state.custom_message,
+                alert=alert_dict
             )
 
             # 5. Push to physical display
@@ -124,12 +141,19 @@ async def display_worker():
             # Clear event in case it was set in a previous run
             state.force_refresh_event.clear()
             
-            # If a custom message has an active timer, wake up exactly when it expires
+            # If a custom message or alert has an active timer, wake up exactly when it expires
             timeout = 60.0
+            now = time.time()
+            expiries = []
             if state.custom_message_expiry:
-                time_to_expiry = state.custom_message_expiry - time.time()
+                expiries.append(state.custom_message_expiry)
+            if state.alert_expiry:
+                expiries.append(state.alert_expiry)
+            
+            if expiries:
+                time_to_expiry = min(expiries) - now
                 if 0 < time_to_expiry < 60.0:
-                    timeout = time_to_expiry
+                    timeout = max(0.1, time_to_expiry)
 
             logger.info(f"Display worker durmiendo por {timeout:.1f}s o hasta llamada de API...")
             await asyncio.wait_for(state.force_refresh_event.wait(), timeout=timeout)

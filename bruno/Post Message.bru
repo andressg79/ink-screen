@@ -1,0 +1,18 @@
+meta {
+  name: Post Message
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://orangepirv2.local:8000/api/message
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "text": "Mensaje personalizado en el footer",
+    "duration": 60
+  }
+}
