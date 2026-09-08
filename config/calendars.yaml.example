@@ -1,0 +1,32 @@
+# ==============================================================================
+# Configuración de Módulos de Calendario (Google Calendar iCal)
+# ==============================================================================
+# Copie este archivo como 'config/calendars.yaml' y pegue sus direcciones secretas iCal.
+#
+# Para obtener la URL secreta de cada calendario:
+# 1. En Google Calendar (web), vaya a Configuración del calendario deseado.
+# 2. En la sección "Integrar el calendario", copie la "Dirección secreta en formato iCal".
+# 3. Pegue esa URL en el campo 'url' correspondiente.
+# ==============================================================================
+
+settings:
+  max_events: 4               # Cantidad máxima de eventos a mostrar en pantalla (2 a 4)
+  cache_ttl_seconds: 300      # Intervalo de actualización en segundos (300s = 5 min)
+  duration: 30                # Segundos de permanencia en el carrusel de pantallas
+  show_all_day_events: false  # Ocultar o mostrar eventos de día completo
+
+calendars:
+  - account: "Personal"
+    label: "Personal"
+    url: "https://calendar.google.com/calendar/ical/ejemplo_personal%40gmail.com/private-0123456789abcdef0123456789abcdef/basic.ics"
+    enabled: true
+
+  - account: "Trabajo"
+    label: "Work"
+    url: "https://calendar.google.com/calendar/ical/ejemplo_trabajo%40empresa.com/private-fedcba9876543210fedcba9876543210/basic.ics"
+    enabled: true
+
+  - account: "Trabajo"
+    label: "Equipo"
+    url: "https://calendar.google.com/calendar/ical/equipo_ejemplo%40group.calendar.google.com/private-abcdef0123456789abcdef0123456789/basic.ics"
+    enabled: false

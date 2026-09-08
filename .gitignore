@@ -24,3 +24,8 @@ coverage.xml
 # Antigravity/Gemini (local execution traces/scratch files in project root, if any)
 .gemini/
 .DS_Store
+
+# Calendar secrets & downloads
+config/calendars.yaml
+*.ics
+

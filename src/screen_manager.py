@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from src.screens.base import BaseScreen
 from src.screens.system_screen import SystemScreen
 from src.screens.miner_screen import MinerScreen
+from src.screens.calendar_screen import CalendarScreen
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,15 @@ class ScreenManager:
         # Duraciones configurables por entorno
         system_duration = int(os.getenv("SCREEN_SYSTEM_DURATION", "60"))
         miner_duration = int(os.getenv("SCREEN_MINER_DURATION", "30"))
+        calendar_duration = int(os.getenv("SCREEN_CALENDAR_DURATION", "30"))
         rotation_env = os.getenv("SCREEN_ROTATION_ENABLED", "1").lower()
         self.rotation_enabled = rotation_env in ("1", "true", "yes")
 
         # Registro de módulos de pantalla por defecto
         self.screens: List[BaseScreen] = [
             SystemScreen(duration=system_duration),
-            MinerScreen(duration=miner_duration)
+            MinerScreen(duration=miner_duration),
+            CalendarScreen(duration=calendar_duration)
         ]
         
         self.current_index: int = 0

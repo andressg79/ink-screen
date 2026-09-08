@@ -91,9 +91,18 @@ class OrangePiRV2:
     def spi_writebyte(self, data):
         if self.mock_mode:
             return
-        chunk_size = 2048
+        chunk_size = 1024
         for i in range(0, len(data), chunk_size):
-            self.SPI.writebytes(data[i:i + chunk_size])
+            chunk = data[i:i + chunk_size]
+            for attempt in range(3):
+                try:
+                    self.SPI.writebytes(chunk)
+                    break
+                except OSError as e:
+                    if attempt == 2:
+                        logger.error(f"SPI writebytes failed after 3 attempts: {e}")
+                        raise
+                    time.sleep(0.003)
             if i + chunk_size < len(data):
                 time.sleep(0.001)
 
@@ -101,11 +110,20 @@ class OrangePiRV2:
         if self.mock_mode:
             return
         # spidev en Linux tiene un límite de transferencia por ioctl de 4096 bytes (/sys/module/spidev/parameters/bufsiz).
-        # Fragmentamos en bloques de 2048 bytes con un micro-delay para evitar desbordamiento del controlador SPI DMA
-        # y prevenir OSError: [Errno 5] Input/output error.
-        chunk_size = 2048
+        # Fragmentamos en bloques de 1024 bytes con micro-delay y reintentos para evitar desbordamiento del controlador
+        # SPI DMA de Allwinner Ky y prevenir OSError: [Errno 5] Input/output error durante transferencias intensivas.
+        chunk_size = 1024
         for i in range(0, len(data), chunk_size):
-            self.SPI.writebytes2(data[i:i + chunk_size])
+            chunk = data[i:i + chunk_size]
+            for attempt in range(3):
+                try:
+                    self.SPI.writebytes2(chunk)
+                    break
+                except OSError as e:
+                    if attempt == 2:
+                        logger.error(f"SPI writebytes2 failed after 3 attempts: {e}")
+                        raise
+                    time.sleep(0.003)
             if i + chunk_size < len(data):
                 time.sleep(0.001)
 
