@@ -91,25 +91,42 @@ class OrangePiRV2:
     def spi_writebyte(self, data):
         if self.mock_mode:
             return
-        self.SPI.writebytes(data)
+        chunk_size = 2048
+        for i in range(0, len(data), chunk_size):
+            self.SPI.writebytes(data[i:i + chunk_size])
+            if i + chunk_size < len(data):
+                time.sleep(0.001)
 
     def spi_writebyte2(self, data):
         if self.mock_mode:
             return
-        # spidev writebytes2 is faster for large buffers
-        self.SPI.writebytes2(data)
+        # spidev en Linux tiene un límite de transferencia por ioctl de 4096 bytes (/sys/module/spidev/parameters/bufsiz).
+        # Fragmentamos en bloques de 2048 bytes con un micro-delay para evitar desbordamiento del controlador SPI DMA
+        # y prevenir OSError: [Errno 5] Input/output error.
+        chunk_size = 2048
+        for i in range(0, len(data), chunk_size):
+            self.SPI.writebytes2(data[i:i + chunk_size])
+            if i + chunk_size < len(data):
+                time.sleep(0.001)
 
     def module_init(self):
         if self.mock_mode:
             logger.info("EPD Mock Module Init")
             return 0
 
+        # Close any previous SPI file descriptor to prevent leaks
+        if self.SPI:
+            try:
+                self.SPI.close()
+            except Exception:
+                pass
+
         # Open SPI bus 3, device 0 (/dev/spidev3.0)
         try:
             self.SPI.open(3, 0)
             self.SPI.max_speed_hz = 4000000
             self.SPI.mode = 0b00
-            logger.info("SPI3.0 interface opened successfully.")
+            logger.debug("SPI3.0 interface opened successfully.")
             return 0
         except Exception as e:
             logger.error(f"Failed to open SPI device: {e}")
@@ -120,9 +137,12 @@ class OrangePiRV2:
             logger.info("EPD Mock Module Exit")
             return
 
-        logger.info("Closing SPI and clean GPIO...")
+        logger.debug("Closing SPI and clean GPIO...")
         if self.SPI:
-            self.SPI.close()
+            try:
+                self.SPI.close()
+            except Exception as e:
+                logger.debug(f"Error closing SPI: {e}")
 
         self.digital_write(RST_PIN, 0)
         self.digital_write(DC_PIN, 0)

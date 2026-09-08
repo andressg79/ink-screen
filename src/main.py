@@ -136,22 +136,30 @@ async def display_worker():
             logger.info(f"Actualizando pantalla (Refresco: {'Completo' if should_full_refresh else 'Parcial'}, Nro: {state.refresh_count})...")
             
             # Wake up and write buffer
-            if should_full_refresh:
-                epd.init()
-                epd.Clear()  # Flash black/white to clear ghosting
-                epd.display_Base(image_buffer)
-                epd.sleep()
-                state.last_full_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                # EPD init_Fast is optimized for quick partial refresh cycles
-                epd.init_Fast()
-                epd.display_Partial(image_buffer, state.previous_image_buffer)
-                epd.sleep()
-                state.last_partial_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            try:
+                if should_full_refresh:
+                    epd.init()
+                    epd.Clear()  # Flash black/white to clear ghosting
+                    epd.display_Base(image_buffer)
+                    state.last_full_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    # EPD init_Fast is optimized for quick partial refresh cycles
+                    epd.init_Fast()
+                    epd.display_Partial(image_buffer, state.previous_image_buffer)
+                    state.last_partial_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            finally:
+                try:
+                    epd.sleep()
+                except Exception as sleep_err:
+                    logger.debug(f"Error en epd.sleep(): {sleep_err}")
 
             # Save the current buffer as the previous one for the next partial update
             state.previous_image_buffer = image_buffer
             state.refresh_count += 1
+
+            # Reiniciar temporizador para garantizar la duración completa de visualización en pantalla
+            if not state.alert_expiry:
+                screen_manager.reset_timer()
 
         except Exception as e:
             logger.error(f"Error en el ciclo de actualización de pantalla: {e}")
@@ -167,10 +175,10 @@ async def display_worker():
             # Si no hay alerta ocupando la pantalla, calcular tiempo restante para rotación
             if not state.alert_expiry:
                 remaining_screen = screen_manager.get_remaining_time(now)
-                if 0.1 <= remaining_screen < 60.0:
-                    timeout = remaining_screen
-                elif remaining_screen < 0.1:
-                    timeout = 0.5
+                if remaining_screen >= 5.0:
+                    timeout = min(60.0, remaining_screen)
+                else:
+                    timeout = 5.0
 
             # Si un mensaje personalizado o alerta expira antes, despertar exactamente en su expiración
             expiries = []

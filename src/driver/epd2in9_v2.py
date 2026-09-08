@@ -142,16 +142,15 @@ class EPD:
         epdconfig.digital_write(self.dc_pin, 1)
         epdconfig.spi_writebyte2(data)
         
-    def ReadBusy(self):
+    def ReadBusy(self, timeout=0.05):
         import time
         logger.debug("e-Paper busy")
-        timeout = 4.0  # 4 seconds max timeout
         start = time.time()
         # 0: idle, 1: busy
         while epdconfig.digital_read(self.busy_pin) == 1:
-            epdconfig.delay_ms(10) 
+            epdconfig.delay_ms(5) 
             if time.time() - start > timeout:
-                logger.warning("e-Paper ReadBusy timeout! Continuing...")
+                logger.debug(f"e-Paper ReadBusy timeout ({timeout}s). Continuing...")
                 break
         logger.debug("e-Paper busy release")  
 
@@ -159,19 +158,19 @@ class EPD:
         self.send_command(0x22) # DISPLAY_UPDATE_CONTROL_2
         self.send_data(0xc7)
         self.send_command(0x20) # MASTER_ACTIVATION
-        self.ReadBusy()
+        self.ReadBusy(2.0)
 
     def TurnOnDisplay_Partial(self):
         self.send_command(0x22) # DISPLAY_UPDATE_CONTROL_2
         self.send_data(0x0F)
         self.send_command(0x20) # MASTER_ACTIVATION
-        self.ReadBusy()
+        self.ReadBusy(0.35)
 
     def lut(self, lut):
         self.send_command(0x32)
         for i in range(0, 153):
             self.send_data(lut[i])
-        self.ReadBusy()
+        self.ReadBusy(0.05)
 
     def SetLut(self, lut):
         self.lut(lut)
@@ -512,7 +511,7 @@ class EPD:
         self.send_command(0x10) # DEEP_SLEEP_MODE
         self.send_data(0x01)
         
-        epdconfig.delay_ms(2000)
+        epdconfig.delay_ms(100)
         epdconfig.module_exit()
 
     def _save_preview_if_mock(self, image_buffer):
