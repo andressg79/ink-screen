@@ -61,7 +61,7 @@ class SystemScreen(BaseScreen):
         font_emoji_m = toolkit.get_emoji_font(12)
         font_emoji_l = toolkit.get_emoji_font(20)
 
-        # 1. HEADER (Y: 0 -> 18)
+        # 1. HEADER ESTÁNDAR
         now_dt = toolkit.get_now()
         date_str = now_dt.strftime("%A, %d de %B")
 
@@ -82,29 +82,10 @@ class SystemScreen(BaseScreen):
             date_str = date_str[0].upper() + date_str[1:]
 
         time_str = now_dt.strftime("%H:%M")
+        toolkit.draw_standard_header(draw, icon="📅", title=date_str, time_str=time_str)
 
-        if toolkit.emoji_font_path:
-            draw.text((6, 2), "📅", font=font_emoji_m, fill=0)
-            date_x = 24
-        else:
-            date_x = 6
-        draw.text((date_x, 2), date_str, font=font_m, fill=0)
-
-        time_width = draw.textlength(time_str, font=font_m)
-        if toolkit.emoji_font_path:
-            emoji_width = draw.textlength("⏰", font=font_emoji_m)
-            combined_width = emoji_width + 4 + time_width
-            time_x = WIDTH - combined_width - 8
-            draw.text((time_x, 2), "⏰", font=font_emoji_m, fill=0)
-            draw.text((time_x + emoji_width + 4, 2), time_str, font=font_m, fill=0)
-        else:
-            time_x = WIDTH - time_width - 8
-            draw.text((time_x, 2), time_str, font=font_m, fill=0)
-
-        draw.line([(0, 18), (WIDTH, 18)], fill=0, width=1)
-
-        # 2. BODY - TWO COLUMNS (Y: 19 -> 106)
-        draw.line([(135, 18), (135, 106)], fill=0, width=1)
+        # 2. BODY - DOS COLUMNAS (Y: 19 -> 127)
+        draw.line([(135, 18), (135, 127)], fill=0, width=1)
 
         # A. LEFT COLUMN: Clima (X: 0 -> 134)
         temp = weather_metrics.get("temp", "--.-")
@@ -119,29 +100,29 @@ class SystemScreen(BaseScreen):
         except Exception:
             wind_compact = wind.replace(" km/h", "km/h").strip()
 
-        draw.text((6, 22), "Montevideo", font=font_m, fill=0)
-        draw.text((8, 38), f"{temp}°C", font=font_l, fill=0)
+        draw.text((6, 23), "Montevideo", font=font_m, fill=0)
+        draw.text((8, 41), f"{temp}°C", font=font_l, fill=0)
 
         if toolkit.emoji_font_path and icon:
             temp_width = draw.textlength(f"{temp}°C", font=font_l)
-            draw.text((8 + temp_width + 8, 38), icon, font=font_emoji_l, fill=0)
+            draw.text((8 + temp_width + 8, 41), icon, font=font_emoji_l, fill=0)
 
         if len(condition) > 22:
             condition = condition[:19] + "..."
-        draw.text((6, 70), condition, font=font_s, fill=0)
+        draw.text((6, 73), condition, font=font_s, fill=0)
 
         if toolkit.emoji_font_path:
-            draw.text((6, 86), "💧", font=font_emoji_m, fill=0)
-            draw.text((6 + 14, 86), humidity, font=font_s, fill=0)
+            draw.text((6, 93), "💧", font=font_emoji_m, fill=0)
+            draw.text((6 + 14, 93), humidity, font=font_s, fill=0)
 
             hum_width = draw.textlength(humidity, font=font_s)
             wind_x = 6 + 14 + hum_width + 12
 
-            draw.text((wind_x - 6, 86), "|", font=font_s, fill=0)
-            draw.text((wind_x + 6, 86), "💨", font=font_emoji_m, fill=0)
-            draw.text((wind_x + 6 + 14, 86), wind_compact, font=font_s, fill=0)
+            draw.text((wind_x - 6, 93), "|", font=font_s, fill=0)
+            draw.text((wind_x + 6, 93), "💨", font=font_emoji_m, fill=0)
+            draw.text((wind_x + 6 + 14, 93), wind_compact, font=font_s, fill=0)
         else:
-            draw.text((6, 86), f"Hum: {humidity} | Vto: {wind_compact}", font=font_s, fill=0)
+            draw.text((6, 93), f"Hum: {humidity} | Vto: {wind_compact}", font=font_s, fill=0)
 
         # B. RIGHT COLUMN: Métricas del Sistema (X: 136 -> 295)
         cpu = system_metrics.get("cpu", 0.0)
@@ -158,38 +139,11 @@ class SystemScreen(BaseScreen):
             else:
                 draw.text((142, y), label, font=font_s, fill=0)
 
-        draw_metric_line(22, "⚙️", f"CPU: {cpu}%")
-        draw_metric_line(36, "🌡️", f"Temp: {temp_c}°C")
-        draw_metric_line(50, "📊", f"RAM: {ram}%")
-        draw_metric_line(64, "💾", f"Disco: {disk}%")
-        draw_metric_line(78, "🌐", f"IP: {ip}")
-        draw_metric_line(92, "⏳", f"Uptime: {uptime}")
-
-        # 3. FOOTER - INVERTED (Y: 107 -> 127)
-        draw.rectangle([(0, 107), (WIDTH, HEIGHT)], fill=0)
-
-        if custom_message:
-            display_text = custom_message
-            emoji_char = "📢"
-        elif carousel_info and carousel_info.get("rotation_enabled") and carousel_info.get("total_screens", 1) > 1:
-            idx = carousel_info.get("current_index", 1)
-            tot = carousel_info.get("total_screens", 2)
-            rem = carousel_info.get("time_remaining_sec", 0)
-            next_name = carousel_info.get("next_title", "Minero")
-            display_text = f"[{idx}/{tot}] Sig: {next_name} en {rem}s"
-            emoji_char = "🔄"
-        else:
-            display_text = "orangepirv2.local | Sistema Activo"
-            emoji_char = "⚙️"
-
-        max_len = 38 if toolkit.emoji_font_path else 46
-        if len(display_text) > max_len:
-            display_text = display_text[:max_len-3] + "..."
-
-        if toolkit.emoji_font_path:
-            draw.text((8, 111), emoji_char, font=font_emoji_m, fill=255)
-            draw.text((8 + 18, 111), display_text, font=font_m, fill=255)
-        else:
-            draw.text((8, 111), display_text, font=font_m, fill=255)
+        draw_metric_line(23, "⚙️", f"CPU: {cpu}%")
+        draw_metric_line(40, "🌡️", f"Temp: {temp_c}°C")
+        draw_metric_line(57, "📊", f"RAM: {ram}%")
+        draw_metric_line(74, "💾", f"Disco: {disk}%")
+        draw_metric_line(91, "🌐", f"IP: {ip}")
+        draw_metric_line(108, "⏳", f"Uptime: {uptime}")
 
         return img
