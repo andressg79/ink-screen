@@ -4,9 +4,10 @@ from src.screen_manager import Screen, ScreenManager
 
 def test_screen_manager_defaults():
     sm = ScreenManager()
-    assert len(sm.screens) == 2
+    assert len(sm.screens) == 3
     assert sm.screens[0].name == "system"
     assert sm.screens[1].name == "miner"
+    assert sm.screens[2].name == "calendar"
     assert sm.rotation_enabled is True
     assert sm.forced_screen is None
 
