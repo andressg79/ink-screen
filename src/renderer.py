@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Optional
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from src.pixel_art import get_pixel_art_image
@@ -80,6 +81,38 @@ class ScreenRenderer:
         if self.tz:
             return datetime.now(self.tz)
         return datetime.now()
+
+    def draw_standard_header(self, draw: ImageDraw.ImageDraw, icon: str, title: str, time_str: Optional[str] = None) -> None:
+        """
+        Dibuja el encabezado estándar para todas las pantallas del carrusel:
+        - Izquierda: Ícono descriptivo (emoji si está disponible, o texto alternativo).
+        - Centro-Izquierda: Título textual descriptivo (font_m).
+        - Derecha: Hora actual (HH:MM) alineada al margen derecho (WIDTH - 8).
+        - Línea divisoria horizontal en Y=18 a lo ancho de toda la pantalla (296 px).
+        """
+        font_m = self.get_font(12)
+        font_emoji_m = self.get_emoji_font(12)
+
+        if time_str is None:
+            now_dt = self.get_now()
+            time_str = now_dt.strftime("%H:%M")
+
+        # 1. Ícono y Título a la izquierda
+        if self.emoji_font_path and icon:
+            draw.text((6, 2), icon, font=font_emoji_m, fill=0)
+            title_x = 24
+        else:
+            title_x = 6
+
+        draw.text((title_x, 2), title, font=font_m, fill=0)
+
+        # 2. Hora a la derecha (HH:MM contra margen derecho)
+        time_width = draw.textlength(time_str, font=font_m)
+        time_x = WIDTH - time_width - 8
+        draw.text((time_x, 2), time_str, font=font_m, fill=0)
+
+        # 3. Línea divisoria horizontal en Y=18
+        draw.line([(0, 18), (WIDTH, 18)], fill=0, width=1)
 
     def render(self, system_metrics: dict, weather_metrics: dict, custom_message: str = None, alert: dict = None, carousel_info: dict = None) -> Image.Image:
         if alert:

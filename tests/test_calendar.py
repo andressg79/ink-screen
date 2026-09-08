@@ -1,6 +1,6 @@
 import os
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from unittest.mock import patch, MagicMock
 from PIL import Image
@@ -10,13 +10,22 @@ from src.screens.calendar_screen import CalendarScreen
 from src.screens.base import ScreenContext
 from src.renderer import ScreenRenderer
 
-SAMPLE_ICAL = """BEGIN:VCALENDAR
+def get_sample_ical() -> str:
+    now_utc = datetime.now(timezone.utc)
+    ev1_start = (now_utc + timedelta(hours=1)).strftime("%Y%m%dT%H%M%SZ")
+    ev1_end = (now_utc + timedelta(hours=2)).strftime("%Y%m%dT%H%M%SZ")
+    ev2_start = (now_utc + timedelta(hours=3)).strftime("%Y%m%dT%H%M%SZ")
+    ev2_end = (now_utc + timedelta(hours=4)).strftime("%Y%m%dT%H%M%SZ")
+    past_start = (now_utc - timedelta(days=2)).strftime("%Y%m%dT%H%M%SZ")
+    past_end = (now_utc - timedelta(days=2, hours=-1)).strftime("%Y%m%dT%H%M%SZ")
+
+    return f"""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Test//EN
 BEGIN:VEVENT
 UID:event-1@example.com
-DTSTART:20260908T140000Z
-DTEND:20260908T150000Z
+DTSTART:{ev1_start}
+DTEND:{ev1_end}
 SUMMARY:Reunion de Planificacion
 DESCRIPTION:Link de la llamada: https://meet.google.com/abc-defg-hij
 LOCATION:Google Meet
@@ -24,16 +33,16 @@ STATUS:CONFIRMED
 END:VEVENT
 BEGIN:VEVENT
 UID:event-2@example.com
-DTSTART:20260908T160000Z
-DTEND:20260908T163000Z
+DTSTART:{ev2_start}
+DTEND:{ev2_end}
 SUMMARY:Cafe con Colega
 LOCATION:Oficina Central
 STATUS:CONFIRMED
 END:VEVENT
 BEGIN:VEVENT
 UID:event-past@example.com
-DTSTART:20260901T100000Z
-DTEND:20260901T110000Z
+DTSTART:{past_start}
+DTEND:{past_end}
 SUMMARY:Evento Pasado
 STATUS:CONFIRMED
 END:VEVENT
@@ -70,7 +79,7 @@ def test_calendar_service_parse_feed():
     # Mock requests.get
     with patch("requests.get") as mock_get:
         mock_resp = MagicMock()
-        mock_resp.content = SAMPLE_ICAL.encode("utf-8")
+        mock_resp.content = get_sample_ical().encode("utf-8")
         mock_resp.status_code = 200
         mock_get.return_value = mock_resp
 

@@ -44,23 +44,11 @@ class CalendarScreen(BaseScreen):
         font_emoji_m = toolkit.get_emoji_font(12)
 
         # -------------------------------------------------------------
-        # 1. HEADER (Y: 0 -> 18)
-        # -------------------------------------------------------------
-        if toolkit.emoji_font_path:
-            draw.text((6, 2), "📅", font=font_emoji_m, fill=0)
-            draw.text((24, 2), "AGENDA DE REUNIONES", font=font_m, fill=0)
-        else:
-            draw.text((6, 2), "[AGENDA REUNIONES]", font=font_m, fill=0)
-
-        now_dt = toolkit.get_now()
-        time_str = now_dt.strftime("%H:%M")
-        time_w = draw.textlength(time_str, font=font_m)
-        draw.text((WIDTH - time_w - 8, 2), time_str, font=font_m, fill=0)
-
-        draw.line([(0, 18), (WIDTH, 18)], fill=0, width=1)
+        # 1. HEADER ESTÁNDAR
+        toolkit.draw_standard_header(draw, icon="📅", title="AGENDA DE REUNIONES")
 
         # -------------------------------------------------------------
-        # 2. BODY - ADAPTATIVE LAYOUT (Y: 19 -> 106)
+        # 2. BODY - ADAPTATIVE LAYOUT (Y: 19 -> 127)
         # -------------------------------------------------------------
         num_events = len(events)
 
@@ -72,21 +60,21 @@ class CalendarScreen(BaseScreen):
             w_sub = draw.textlength(msg_sub, font=font_s)
 
             if toolkit.emoji_font_path:
-                draw.text(((WIDTH - 24) // 2, 35), "🎉", font=toolkit.get_emoji_font(20), fill=0)
-            draw.text(((WIDTH - w_main) // 2, 60), msg_main, font=font_m, fill=0)
-            draw.text(((WIDTH - w_sub) // 2, 78), msg_sub, font=font_s, fill=0)
+                draw.text(((WIDTH - 24) // 2, 40), "🎉", font=toolkit.get_emoji_font(20), fill=0)
+            draw.text(((WIDTH - w_main) // 2, 68), msg_main, font=font_m, fill=0)
+            draw.text(((WIDTH - w_sub) // 2, 88), msg_sub, font=font_s, fill=0)
 
         elif num_events <= 2:
             # Modo Tarjetas Espaciosas (1 o 2 reuniones)
-            row_height = 42
-            start_y = 22
+            row_height = 50
+            start_y = 24
 
             for i, ev in enumerate(events[:2]):
                 current_y = start_y + (i * row_height)
                 
                 # Línea divisoria si hay 2 eventos
                 if i > 0:
-                    draw.line([(6, current_y - 2), (WIDTH - 6, current_y - 2)], fill=0, width=1)
+                    draw.line([(6, current_y - 4), (WIDTH - 6, current_y - 4)], fill=0, width=1)
 
                 # A. Fila Superior: Estado / Horario / VC / Etiqueta
                 badge_x = 6
@@ -126,17 +114,17 @@ class CalendarScreen(BaseScreen):
                 max_summary_len = 36
                 if len(summary) > max_summary_len:
                     summary = summary[:max_summary_len - 3] + "..."
-                draw.text((6, current_y + 16), summary, font=font_m, fill=0)
+                draw.text((6, current_y + 18), summary, font=font_m, fill=0)
 
         else:
             # Modo Lista Compacta (3 o 4 reuniones)
-            row_height = 21 if num_events >= 4 else 28
-            start_y = 20
+            row_height = 26 if num_events >= 4 else 34
+            start_y = 23
 
             for i, ev in enumerate(events[:4]):
                 current_y = start_y + (i * row_height)
 
-                # Viñeta de estado (● si está en curso, - si es futura)
+                # Viñeta de estado (● si está en curso, • si es futura)
                 if ev.get("is_in_progress"):
                     indicator = "●"
                     if toolkit.emoji_font_path:
@@ -155,7 +143,7 @@ class CalendarScreen(BaseScreen):
                 draw.text((16, current_y), time_disp, font=font_s, fill=0)
                 time_w_ev = int(draw.textlength(time_disp, font=font_s))
 
-                title_start_x = 16 + time_w_ev + 4
+                title_start_x = 16 + time_w_ev + 6
 
                 # Videollamada
                 if ev.get("has_video_call"):
@@ -177,34 +165,5 @@ class CalendarScreen(BaseScreen):
                 while draw.textlength(summary, font=font_s) > avail_w and len(summary) > 4:
                     summary = summary[:-4] + "..."
                 draw.text((title_start_x, current_y), summary, font=font_s, fill=0)
-
-        # -------------------------------------------------------------
-        # 3. FOOTER - INVERTED (Y: 107 -> 127)
-        # -------------------------------------------------------------
-        draw.rectangle([(0, 107), (WIDTH, HEIGHT)], fill=0)
-
-        if custom_message:
-            display_text = custom_message
-            emoji_char = "📢"
-        elif carousel_info and carousel_info.get("rotation_enabled") and carousel_info.get("total_screens", 1) > 1:
-            idx = carousel_info.get("current_index", 3)
-            tot = carousel_info.get("total_screens", 3)
-            rem = carousel_info.get("time_remaining_sec", 0)
-            next_name = carousel_info.get("next_title", "Sistema")
-            display_text = f"[{idx}/{tot}] Sig: {next_name} en {rem}s"
-            emoji_char = "🔄"
-        else:
-            display_text = "Google Calendar | Sincronizado"
-            emoji_char = "📅"
-
-        max_len = 38 if toolkit.emoji_font_path else 46
-        if len(display_text) > max_len:
-            display_text = display_text[:max_len - 3] + "..."
-
-        if toolkit.emoji_font_path:
-            draw.text((8, 111), emoji_char, font=font_emoji_m, fill=255)
-            draw.text((8 + 18, 111), display_text, font=font_m, fill=255)
-        else:
-            draw.text((8, 111), display_text, font=font_m, fill=255)
 
         return img
