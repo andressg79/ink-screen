@@ -13,11 +13,9 @@ import uvicorn
 from fastapi import FastAPI
 
 from src.api import router, state
-from src.system_info import get_all_metrics
-from src.weather import WeatherService
 from src.renderer import ScreenRenderer
-from src.miner import get_miner_metrics
 from src.screen_manager import screen_manager
+from src.screens.base import ScreenContext
 
 # Set up logging
 logging.basicConfig(
@@ -31,11 +29,9 @@ logging.basicConfig(
 logger = logging.getLogger("ink-screen")
 
 # Initialize managers
-weather_service = WeatherService()
 renderer = ScreenRenderer()
 
 # Constants
-WEATHER_REFRESH_INTERVAL = 900  # 15 minutes in seconds
 FULL_REFRESH_FREQUENCY = 30     # Perform full refresh every 30 updates
 
 async def display_worker():
@@ -62,37 +58,24 @@ async def display_worker():
     except Exception as e:
         logger.error(f"Error inicializando pantalla: {e}")
 
-    last_weather_fetch = 0.0
-
     while True:
         try:
-            # 1. Update weather data (with caching)
             now = time.time()
-            if not state.weather_metrics or (now - last_weather_fetch >= WEATHER_REFRESH_INTERVAL):
-                logger.info("Actualizando datos del clima...")
-                state.weather_metrics = weather_service.fetch_weather()
-                last_weather_fetch = now
 
-            # 2. Update system metrics (always fresh)
-            state.system_metrics = get_all_metrics()
-
-            # 2b. Update miner metrics
-            state.miner_metrics = get_miner_metrics()
-
-            # 3. Check custom message expiry
+            # 1. Check custom message expiry
             if state.custom_message_expiry:
                 if now >= state.custom_message_expiry:
                     logger.info("El mensaje personalizado ha expirado. Limpiando...")
                     state.custom_message = None
                     state.custom_message_expiry = None
 
-            # 3b. Check alert message expiry
+            # 1b. Check alert message expiry
             if state.alert_expiry:
                 if now >= state.alert_expiry:
                     logger.info("La alerta RPG ha expirado. Limpiando...")
                     state.clear_alert()
 
-            # 4. Render image canvas based on priority
+            # 2. Render image canvas based on priority
             if state.alert_expiry:
                 # Prioridad 1: Alerta RPG a pantalla completa
                 logger.info("Renderizando alerta RPG prioritaria...")
@@ -103,7 +86,7 @@ async def display_worker():
                     footer=state.alert_footer
                 )
             else:
-                # Prioridad 3: Carrusel de pantallas activas (con soporte de footer para Prioridad 2)
+                # Prioridad 2/3: Carrusel de módulos de pantalla Plug & Play
                 if screen_manager.should_switch(now):
                     screen_manager.switch_next(now)
 
@@ -111,20 +94,22 @@ async def display_worker():
                 carousel_info = screen_manager.get_carousel_info()
                 logger.info(f"Renderizando pantalla '{current_screen.name}' (Carrusel [{carousel_info['current_index']}/{carousel_info['total_screens']}])...")
 
-                if current_screen.name == "miner":
-                    img = renderer.render_miner(
-                        miner_metrics=state.miner_metrics,
-                        system_metrics=state.system_metrics,
-                        custom_message=state.custom_message,
-                        carousel_info=carousel_info
-                    )
-                else:
-                    img = renderer.render(
-                        system_metrics=state.system_metrics,
-                        weather_metrics=state.weather_metrics,
-                        custom_message=state.custom_message,
-                        carousel_info=carousel_info
-                    )
+                # Cada pantalla obtiene sus datos y renderiza de forma polimórfica
+                screen_data = current_screen.fetch_data()
+                context = ScreenContext(
+                    custom_message=state.custom_message,
+                    carousel_info=carousel_info
+                )
+                img = current_screen.render(data=screen_data, toolkit=renderer, context=context)
+
+                # Mantener sincronizadas las métricas de estado para la API REST (/api/status)
+                if isinstance(screen_data, dict):
+                    if "system" in screen_data:
+                        state.system_metrics = screen_data["system"]
+                    if "weather" in screen_data:
+                        state.weather_metrics = screen_data["weather"]
+                    if "miner" in screen_data:
+                        state.miner_metrics = screen_data["miner"]
 
             # 5. Push to physical display
             # Convert PIL image to 1-bit buffer

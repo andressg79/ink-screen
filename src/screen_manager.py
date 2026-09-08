@@ -2,17 +2,24 @@ import os
 import time
 import logging
 from typing import List, Optional, Dict, Any
+from src.screens.base import BaseScreen
+from src.screens.system_screen import SystemScreen
+from src.screens.miner_screen import MinerScreen
 
 logger = logging.getLogger(__name__)
 
-class Screen:
+class Screen(BaseScreen):
+    """
+    Clase de pantalla genérica para retrocompatibilidad y pantallas ad-hoc.
+    """
     def __init__(self, name: str, title: str, duration: int):
-        self.name = name
-        self.title = title
-        self.duration = max(5, duration)
+        super().__init__(name=name, title=title, duration=duration)
 
-    def __repr__(self):
-        return f"<Screen name='{self.name}' duration={self.duration}s>"
+    def fetch_data(self) -> dict:
+        return {}
+
+    def render(self, data: dict, toolkit: Any, context: Any) -> Any:
+        return None
 
 class ScreenManager:
     """
@@ -26,18 +33,18 @@ class ScreenManager:
         rotation_env = os.getenv("SCREEN_ROTATION_ENABLED", "1").lower()
         self.rotation_enabled = rotation_env in ("1", "true", "yes")
 
-        # Registro de pantallas por defecto
-        self.screens: List[Screen] = [
-            Screen("system", "Sistema y Clima", system_duration),
-            Screen("miner", "Nodo Minero XMRig", miner_duration)
+        # Registro de módulos de pantalla por defecto
+        self.screens: List[BaseScreen] = [
+            SystemScreen(duration=system_duration),
+            MinerScreen(duration=miner_duration)
         ]
         
         self.current_index: int = 0
         self.last_switch_time: float = time.time()
         self.forced_screen: Optional[str] = None
 
-    def register_screen(self, screen: Screen):
-        """Permite registrar nuevas pantallas dinámicamente para futuros monitores."""
+    def register_screen(self, screen: BaseScreen):
+        """Permite registrar nuevas pantallas dinámicamente para futuros monitores Plug & Play."""
         self.screens.append(screen)
         logger.info(f"ScreenManager: Registrada nueva pantalla '{screen.name}' ({screen.duration}s)")
 

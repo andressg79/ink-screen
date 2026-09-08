@@ -75,6 +75,12 @@ class ScreenRenderer:
                 logger.error(f"Failed to load Symbola emoji font: {e}")
         return self.get_font(size)
 
+    def get_now(self) -> datetime:
+        """Retorna la fecha y hora actual considerando la zona horaria configurada."""
+        if self.tz:
+            return datetime.now(self.tz)
+        return datetime.now()
+
     def render(self, system_metrics: dict, weather_metrics: dict, custom_message: str = None, alert: dict = None, carousel_info: dict = None) -> Image.Image:
         if alert:
             return self.render_alert(
