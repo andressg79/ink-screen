@@ -56,9 +56,21 @@ class ScreenManager:
         if now is None:
             now = time.time()
         curr = self.get_current_screen()
+
+        # Si la pantalla está fijada o la rotación deshabilitada, calcula el intervalo cíclico normal
+        if not self.rotation_enabled or self.forced_screen is not None:
+            elapsed = (now - self.last_switch_time) % curr.duration
+            return max(5.0, curr.duration - elapsed)
+
         elapsed = now - self.last_switch_time
         remaining = max(0.0, curr.duration - elapsed)
         return remaining
+
+    def reset_timer(self, now: Optional[float] = None):
+        """Reinicia el temporizador de la pantalla activa tras completarse la actualización física."""
+        if now is None:
+            now = time.time()
+        self.last_switch_time = now
 
     def should_switch(self, now: Optional[float] = None) -> bool:
         """Evalúa si ha transcurrido la duración de la pantalla actual."""
