@@ -130,30 +130,27 @@ async def display_worker():
             # Convert PIL image to 1-bit buffer
             image_buffer = epd.getbuffer(img)
             
-            # Determine if we should perform a full refresh to prevent ghosting
-            should_full_refresh = (state.refresh_count % FULL_REFRESH_FREQUENCY == 0)
+            # Limpieza periódica de ghosting (Clear) cada FULL_REFRESH_FREQUENCY actualizaciones
+            should_clear_ghosting = (state.refresh_count > 0 and state.refresh_count % FULL_REFRESH_FREQUENCY == 0)
             
-            logger.info(f"Actualizando pantalla (Refresco: {'Completo' if should_full_refresh else 'Parcial'}, Nro: {state.refresh_count})...")
+            logger.info(f"Actualizando pantalla (Nro: {state.refresh_count}, Limpieza ghosting: {should_clear_ghosting})...")
             
-            # Wake up and write buffer
+            # Despertar y escribir buffer usando el método confiable de hardware (display_Base)
             try:
-                if should_full_refresh:
-                    epd.init()
-                    epd.Clear()  # Flash black/white to clear ghosting
-                    epd.display_Base(image_buffer)
-                    state.last_full_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                else:
-                    # EPD init_Fast is optimized for quick partial refresh cycles
-                    epd.init_Fast()
-                    epd.display_Partial(image_buffer, state.previous_image_buffer)
-                    state.last_partial_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                epd.init()
+                if should_clear_ghosting:
+                    epd.Clear()  # Destello de limpieza para prevenir acumulación de partículas
+                epd.display_Base(image_buffer)
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                state.last_full_refresh = now_str
+                state.last_partial_refresh = now_str
             finally:
                 try:
                     epd.sleep()
                 except Exception as sleep_err:
                     logger.debug(f"Error en epd.sleep(): {sleep_err}")
 
-            # Save the current buffer as the previous one for the next partial update
+            # Guardar buffer previo e incrementar contador
             state.previous_image_buffer = image_buffer
             state.refresh_count += 1
 
