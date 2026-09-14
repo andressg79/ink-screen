@@ -1,14 +1,16 @@
 """
 Router FastAPI para el Servidor MCP (Model Context Protocol).
-Implementa transporte SSE (GET /sse + POST /messages) y HTTP RPC directo (POST /mcp).
+Implementa transporte dual:
+1. Estándar MCP SSE (GET /sse + POST /messages o POST /sse)
+2. Endpoint directo JSON-RPC 2.0 HTTP (POST /mcp o POST /rpc o POST /sse)
 """
 
 import asyncio
 import json
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .schemas import (
     JSONRPCErrorCode,
@@ -35,9 +37,9 @@ async def handle_sse(request: Request):
 
     async def event_generator():
         try:
-            # 1. Evento inicial con la URL de retorno para mensajes
-            endpoint_url = f"/messages?session_id={session_id}"
-            yield f"event: endpoint\ndata: {endpoint_url}\n\n"
+            # 1. Evento oficial 'endpoint' con formato estándar de retorno
+            endpoint_url = f"/messages?sessionId={session_id}"
+            yield f"event: endpoint\r\ndata: {endpoint_url}\r\n\r\n"
 
             # 2. Bucle de escucha de respuestas
             while True:
@@ -46,10 +48,10 @@ async def handle_sse(request: Request):
                 try:
                     # Espera con timeout para emitir keep-alives periódicos
                     msg = await asyncio.wait_for(queue.get(), timeout=15.0)
-                    yield f"event: message\ndata: {msg}\n\n"
+                    yield f"event: message\r\ndata: {msg}\r\n\r\n"
                 except asyncio.TimeoutError:
-                    # Keep-alive SSE (comentario)
-                    yield ": ping\n\n"
+                    # Keep-alive SSE
+                    yield ": keepalive\r\n\r\n"
         except asyncio.CancelledError:
             pass
         finally:
@@ -59,55 +61,112 @@ async def handle_sse(request: Request):
         event_generator(),
         media_type="text/event-stream",
         headers={
+            "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
             "X-Accel-Buffering": "no"
         }
     )
 
 
+@mcp_router.post("/sse")
 @mcp_router.post("/messages")
-async def handle_messages(request: Request, session_id: str = Query(..., description="ID de sesión MCP")):
+@mcp_router.post("/mcp")
+@mcp_router.post("/rpc")
+async def handle_post_messages_or_rpc(request: Request):
     """
-    Endpoint para recibir mensajes JSON-RPC 2.0 de clientes MCP conectados por SSE.
+    Manejador unificado para peticiones JSON-RPC 2.0 por POST.
+    Soporta:
+    - POST /messages?sessionId=... o POST /sse?sessionId=... (asociado a flujo SSE activo)
+    - POST /sse, POST /mcp, POST /rpc (modo directo HTTP RPC donde la respuesta viaja en el body)
     """
-    queue = mcp_server.get_session_queue(session_id)
-    if not queue:
+    session_id = (
+        request.query_params.get("sessionId")
+        or request.query_params.get("session_id")
+        or request.query_params.get("sessionid")
+    )
+
+    # Si se especificó una sesión pero no existe o expiró, devolver 404
+    if session_id and session_id not in mcp_server.sse_sessions:
         raise HTTPException(
             status_code=404,
             detail=f"Sesión MCP '{session_id}' no encontrada o ya finalizada."
         )
 
+    # El endpoint /messages requiere obligatoriamente una sesión SSE activa
+    if request.url.path.rstrip("/").endswith("/messages") and not session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Se requiere el parámetro 'sessionId' para enviar mensajes al endpoint /messages."
+        )
+
     try:
         body_bytes = await request.body()
         body_json = json.loads(body_bytes.decode("utf-8"))
-        req = JSONRPCRequest.model_validate(body_json)
     except Exception as e:
         err_resp = JSONRPCResponse(
             error=JSONRPCError(
                 code=JSONRPCErrorCode.PARSE_ERROR,
-                message=f"JSON-RPC inválido: {str(e)}"
+                message=f"JSON inválido: {str(e)}"
             )
         )
-        await queue.put(err_resp.model_dump_json(exclude_none=True))
-        return Response(status_code=202)
+        if session_id and session_id in mcp_server.sse_sessions:
+            queue = mcp_server.sse_sessions[session_id]
+            await queue.put(err_resp.model_dump_json(exclude_none=True))
+            return Response(status_code=202, content="Accepted")
+        return JSONResponse(status_code=400, content=err_resp.model_dump(exclude_none=True))
 
-    response = await mcp_server.dispatch_request(req)
-    if response is not None:
-        await queue.put(response.model_dump_json(exclude_none=True))
+    # Soporte para single o batch
+    if isinstance(body_json, list):
+        responses = []
+        for item in body_json:
+            try:
+                rpc_req = JSONRPCRequest.model_validate(item)
+                rpc_resp = await mcp_server.dispatch_request(rpc_req)
+                if rpc_resp:
+                    responses.append(rpc_resp.model_dump(exclude_none=True))
+            except Exception as e:
+                responses.append(
+                    JSONRPCResponse(
+                        error=JSONRPCError(code=JSONRPCErrorCode.INVALID_REQUEST, message=str(e))
+                    ).model_dump(exclude_none=True)
+                )
 
-    return Response(status_code=202)
+        if session_id and session_id in mcp_server.sse_sessions:
+            queue = mcp_server.sse_sessions[session_id]
+            for r in responses:
+                await queue.put(json.dumps(r, ensure_ascii=False))
+            return Response(status_code=202, content="Accepted")
 
+        return JSONResponse(content=responses)
 
-@mcp_router.post("/mcp", response_model=Optional[JSONRPCResponse])
-async def handle_mcp_rpc(req: JSONRPCRequest):
-    """
-    Endpoint directo HTTP JSON-RPC 2.0 (alternativa sin SSE para pruebas o clientes directos).
-    """
-    response = await mcp_server.dispatch_request(req)
-    if response is None:
+    # Objeto único JSON-RPC
+    try:
+        rpc_req = JSONRPCRequest.model_validate(body_json)
+    except Exception as e:
+        err_resp = JSONRPCResponse(
+            error=JSONRPCError(
+                code=JSONRPCErrorCode.INVALID_REQUEST,
+                message=f"Solicitud JSON-RPC inválida: {str(e)}"
+            )
+        )
+        return JSONResponse(status_code=400, content=err_resp.model_dump(exclude_none=True))
+
+    rpc_resp = await mcp_server.dispatch_request(rpc_req)
+
+    # Si hay una sesión SSE activa registrada, encolamos al stream SSE y devolvemos 202
+    if session_id and session_id in mcp_server.sse_sessions:
+        if rpc_resp is not None:
+            queue = mcp_server.sse_sessions[session_id]
+            await queue.put(rpc_resp.model_dump_json(exclude_none=True))
+        return Response(status_code=202, content="Accepted")
+
+    # Si no hay sesión SSE (llamada directa como POST /sse o POST /mcp):
+    if rpc_resp is None:
         return Response(status_code=204)
-    return response
+
+    return JSONResponse(content=rpc_resp.model_dump(exclude_none=True))
 
 
 @mcp_router.get("/mcp/info")
@@ -118,10 +177,10 @@ async def handle_mcp_info():
     return {
         "status": "online",
         "protocol": "Model Context Protocol (MCP)",
-        "transport": "SSE (Server-Sent Events) + HTTP RPC",
+        "transport": "SSE (Server-Sent Events) + HTTP RPC Directo",
         "endpoints": {
             "sse": "/sse",
-            "messages": "/messages?session_id={id}",
+            "messages": "/messages?sessionId={id}",
             "rpc": "/mcp"
         },
         "tools_count": len(mcp_server.registry.tools),
