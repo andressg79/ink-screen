@@ -13,6 +13,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from src.api import router, state
+from src.mcp import mcp_router
 from src.renderer import ScreenRenderer
 from src.screen_manager import screen_manager
 from src.screens.base import ScreenContext
@@ -205,6 +206,7 @@ app = FastAPI(
 
 # Register API routes
 app.include_router(router, prefix="/api")
+app.include_router(mcp_router)
 
 @app.get("/")
 def read_root():
