@@ -280,3 +280,32 @@ def test_mcp_sse_lifecycle():
     assert msg_fail.status_code == 404
 
 
+def test_mcp_post_sse_direct_rpc():
+    """Verifica que POST /sse soporte llamadas RPC directas (como initialize de Antigravity)."""
+    init_req = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "test-client", "version": "1.0.0"}
+        }
+    }
+    resp = client.post("/sse", json=init_req)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["jsonrpc"] == "2.0"
+    assert data["id"] == 1
+    assert data["result"]["serverInfo"]["name"] == "ink-screen"
+    assert data["result"]["protocolVersion"] == "2024-11-05"
+
+
+def test_mcp_messages_missing_session_id():
+    """Verifica que POST /messages sin session_id devuelva 400 Bad Request."""
+    req = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
+    resp = client.post("/messages", json=req)
+    assert resp.status_code == 400
+
+
+
