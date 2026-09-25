@@ -51,15 +51,22 @@ class ScreenManager:
         self.screens.append(screen)
         logger.info(f"ScreenManager: Registrada nueva pantalla '{screen.name}' ({screen.duration}s)")
 
-    def get_current_screen(self) -> Screen:
-        """Devuelve la pantalla que corresponde mostrar en este momento."""
+    def get_active_screens(self) -> List[BaseScreen]:
+        """
+        Retorna la lista de pantallas activas que deben participar en la rotación automática.
+        Si una pantalla está fijada manualmente (forced_screen), retorna esa pantalla.
+        """
         if self.forced_screen:
             for s in self.screens:
                 if s.name == self.forced_screen:
-                    return s
-        if not self.screens:
-            return Screen("system", "Sistema", 60)
-        return self.screens[self.current_index % len(self.screens)]
+                    return [s]
+        active = [s for s in self.screens if getattr(s, "is_enabled", lambda: True)()]
+        return active if active else self.screens
+
+    def get_current_screen(self) -> BaseScreen:
+        """Devuelve la pantalla que corresponde mostrar en este momento."""
+        active = self.get_active_screens()
+        return active[self.current_index % len(active)]
 
     def get_remaining_time(self, now: Optional[float] = None) -> float:
         """Devuelve los segundos restantes de la pantalla actual antes de rotar."""
@@ -88,11 +95,12 @@ class ScreenManager:
             return False
         return self.get_remaining_time(now) <= 0.0
 
-    def switch_next(self, now: Optional[float] = None) -> Screen:
+    def switch_next(self, now: Optional[float] = None) -> BaseScreen:
         """Avanza a la siguiente pantalla del carrusel y reinicia el temporizador."""
         if now is None:
             now = time.time()
-        self.current_index = (self.current_index + 1) % len(self.screens)
+        active = self.get_active_screens()
+        self.current_index = (self.current_index + 1) % len(active)
         self.last_switch_time = now
         curr = self.get_current_screen()
         logger.info(f"ScreenManager: Rotando a pantalla '{curr.name}' ({curr.duration}s)")
@@ -120,21 +128,26 @@ class ScreenManager:
     def get_carousel_info(self) -> Dict[str, Any]:
         """Devuelve información estructurada del carrusel para el footer y la API."""
         now = time.time()
+        active = self.get_active_screens()
         curr = self.get_current_screen()
-        idx = self.current_index % len(self.screens)
-        next_idx = (idx + 1) % len(self.screens)
-        next_screen = self.screens[next_idx]
+        try:
+            curr_idx = active.index(curr)
+        except ValueError:
+            curr_idx = 0
+        total = len(active)
+        next_idx = (curr_idx + 1) % total
+        next_screen = active[next_idx]
         remaining = int(self.get_remaining_time(now))
 
         return {
             "current_name": curr.name,
             "current_title": curr.title,
-            "current_index": idx + 1,
-            "total_screens": len(self.screens),
+            "current_index": curr_idx + 1,
+            "total_screens": total,
             "next_name": next_screen.name,
             "next_title": next_screen.title,
             "time_remaining_sec": remaining,
-            "rotation_enabled": self.rotation_enabled,
+            "rotation_enabled": self.rotation_enabled and (self.forced_screen is None),
             "is_forced": self.forced_screen is not None
         }
 

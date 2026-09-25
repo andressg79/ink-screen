@@ -33,7 +33,7 @@ logger = logging.getLogger("ink-screen")
 renderer = ScreenRenderer()
 
 # Constants
-FULL_REFRESH_FREQUENCY = 30     # Perform full refresh every 30 updates
+FULL_REFRESH_FREQUENCY = int(os.getenv("FULL_REFRESH_FREQUENCY", "10"))     # Limpieza profunda cada 10 actualizaciones
 
 async def display_worker():
     """
@@ -116,20 +116,27 @@ async def display_worker():
             # Convert PIL image to 1-bit buffer
             image_buffer = epd.getbuffer(img)
             
-            # Limpieza periódica de ghosting (Clear) cada FULL_REFRESH_FREQUENCY actualizaciones
-            should_clear_ghosting = (state.refresh_count > 0 and state.refresh_count % FULL_REFRESH_FREQUENCY == 0)
+            # Limpieza periódica de ghosting (Clear) cada FULL_REFRESH_FREQUENCY actualizaciones o forzada
+            should_clear_ghosting = state.force_clear or (state.refresh_count > 0 and state.refresh_count % FULL_REFRESH_FREQUENCY == 0)
+            if state.force_clear:
+                state.force_clear = False
             
             logger.info(f"Actualizando pantalla (Nro: {state.refresh_count}, Limpieza ghosting: {should_clear_ghosting})...")
             
             # Despertar y escribir buffer usando el método confiable de hardware (display_Base)
             try:
-                epd.init()
+                init_res = epd.init()
+                if init_res != 0:
+                    logger.warning(f"epd.init() retornó código {init_res}.")
                 if should_clear_ghosting:
+                    logger.info("Ejecutando limpieza de hardware anti-ghosting (epd.Clear)...")
                     epd.Clear()  # Destello de limpieza para prevenir acumulación de partículas
                 epd.display_Base(image_buffer)
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 state.last_full_refresh = now_str
                 state.last_partial_refresh = now_str
+            except Exception as disp_err:
+                logger.error(f"Error escribiendo en la pantalla física: {disp_err}")
             finally:
                 try:
                     epd.sleep()

@@ -78,12 +78,22 @@ def test_get_miner_metrics_paused_by_watchdog():
                 assert metrics["hashrate_10s"] == 0.0
 
 def test_get_miner_metrics_offline():
-    # Simulamos falla de conexión y sin proceso xmrig
+    # Simulamos falla de conexión y sin proceso xmrig (parado a propósito)
     with patch("src.miner.requests.get", side_effect=Exception("Connection refused")):
         with patch("src.miner.check_xmrig_process_state", return_value=None):
             with patch("src.miner.sys.platform", "linux"):
                 with patch.dict("os.environ", {"INK_SCREEN_MOCK": "0"}):
                     metrics = get_miner_metrics()
-                    assert metrics["status"] == "OFFLINE"
+                    assert metrics["status"] == "APAGADO"
+                    assert metrics["enabled"] is False
+                    assert metrics["raw_error"] is None
                     assert metrics["hashrate_10s"] == 0.0
                     assert metrics["pool"] == "Desconectado"
+
+def test_get_miner_metrics_disabled_by_env():
+    with patch.dict("os.environ", {"SCREEN_MINER_ENABLED": "0", "INK_SCREEN_MOCK": "0"}):
+        with patch("src.miner.SCREEN_MINER_ENABLED", False):
+            metrics = get_miner_metrics()
+            assert metrics["status"] == "APAGADO"
+            assert metrics["enabled"] is False
+            assert metrics["raw_error"] is None

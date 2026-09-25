@@ -68,6 +68,7 @@ class DisplayState:
         self.last_full_refresh: Optional[str] = None
         self.last_partial_refresh: Optional[str] = None
         self.previous_image_buffer: Optional[list] = None
+        self.force_clear: bool = False
         
         # RPG Alert state fields
         self.alert_title: Optional[str] = None
@@ -188,11 +189,14 @@ async def clear_alert_endpoint():
     return {"status": "success", "message": "Alerta RPG borrada. Actualizando pantalla..."}
 
 @router.post("/refresh")
-async def force_refresh():
+async def force_refresh(clean: bool = True):
     """
     Fuerza una actualización inmediata de la pantalla con datos de clima y sistema frescos.
+    Si clean=True (por defecto), dispara una limpieza física completa (Clear) para eliminar ghosting.
     """
-    logger.info("API: Solicitud de actualización de pantalla forzada.")
+    logger.info(f"API: Solicitud de actualización de pantalla forzada (clean={clean}).")
+    if clean:
+        state.force_clear = True
     state.force_refresh_event.set()
     return {"status": "success", "message": "Actualización forzada en cola."}
 

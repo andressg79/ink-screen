@@ -45,6 +45,24 @@ def test_miner_screen():
     assert img.size == (296, 128)
     assert img.mode == "1"
 
+def test_miner_screen_is_enabled():
+    screen = MinerScreen()
+    
+    # When miner is active (MINANDO)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("src.screens.miner_screen.get_miner_metrics", lambda: {"status": "MINANDO"})
+        assert screen.is_enabled() is True
+
+    # When miner is stopped (APAGADO)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("src.screens.miner_screen.get_miner_metrics", lambda: {"status": "APAGADO"})
+        assert screen.is_enabled() is False
+
+    # When SCREEN_MINER_ENABLED=0
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("SCREEN_MINER_ENABLED", "0")
+        assert screen.is_enabled() is False
+
 def test_plug_and_play_custom_screen():
     class BitcoinTickerScreen(BaseScreen):
         name = "bitcoin"

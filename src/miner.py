@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 XMRIG_API_URL = os.getenv("XMRIG_API_URL", "http://127.0.0.1:37988")
 XMRIG_API_TOKEN = os.getenv("XMRIG_API_TOKEN", "f377144c0292734c501438e74a2e2fe87eec319ff76f1bc7f7d0224864c40c17")
 XMRIG_TIMEOUT = float(os.getenv("XMRIG_TIMEOUT", "1.5"))
+SCREEN_MINER_ENABLED = os.getenv("SCREEN_MINER_ENABLED", "1").lower() in ("1", "true", "yes")
 
 # Caché de última métrica válida
 _LAST_VALID_METRICS: Optional[Dict[str, Any]] = None
@@ -95,7 +96,7 @@ def get_mock_miner_metrics() -> Dict[str, Any]:
 def get_miner_metrics() -> Dict[str, Any]:
     """
     Obtiene las métricas actuales del minero XMRig consultando la API HTTP local.
-    Si la API no responde, verifica si el watchdog lo pausó vía SIGSTOP.
+    Si la API no responde, verifica si el watchdog lo pausó vía SIGSTOP o si está parado a propósito.
     """
     global _LAST_VALID_METRICS
 
@@ -103,11 +104,34 @@ def get_miner_metrics() -> Dict[str, Any]:
     if os.getenv("INK_SCREEN_MOCK") == "1":
         return get_mock_miner_metrics()
 
+    if not SCREEN_MINER_ENABLED:
+        return {
+            "status": "APAGADO",
+            "enabled": False,
+            "hashrate_10s": 0.0,
+            "hashrate_60s": 0.0,
+            "hashrate_15m": 0.0,
+            "hashrate_max": 0.0,
+            "shares_good": 0,
+            "shares_total": 0,
+            "shares_rejected": 0,
+            "diff": 0,
+            "diff_formatted": "---",
+            "pool": "Desconectado",
+            "uptime": "---",
+            "algo": "rx/0",
+            "threads": 0,
+            "hugepages": "---",
+            "paused": False,
+            "raw_error": None
+        }
+
     headers = {}
     if XMRIG_API_TOKEN:
         headers["Authorization"] = f"Bearer {XMRIG_API_TOKEN}"
 
     url = f"{XMRIG_API_URL.rstrip('/')}/2/summary"
+    error_msg = None
 
     try:
         resp = requests.get(url, headers=headers, timeout=XMRIG_TIMEOUT)
@@ -147,6 +171,7 @@ def get_miner_metrics() -> Dict[str, Any]:
 
             metrics = {
                 "status": status_str,
+                "enabled": True,
                 "hashrate_10s": hr_10s,
                 "hashrate_60s": hr_60s,
                 "hashrate_15m": hr_15m,
@@ -169,9 +194,16 @@ def get_miner_metrics() -> Dict[str, Any]:
         else:
             logger.warning(f"XMRig API respondió con código {resp.status_code}: {resp.text}")
             error_msg = f"HTTP {resp.status_code}"
+    except (requests.exceptions.ConnectionError, ConnectionRefusedError, OSError) as conn_err:
+        logger.debug(f"Servicio XMRig detenido o no disponible ({XMRIG_API_URL}): {conn_err}")
+        error_msg = None
     except Exception as e:
-        logger.debug(f"No se pudo contactar a la API de XMRig ({XMRIG_API_URL}): {e}")
-        error_msg = str(e)
+        if "connection refused" in str(e).lower():
+            logger.debug(f"Servicio XMRig detenido o no disponible ({XMRIG_API_URL}): {e}")
+            error_msg = None
+        else:
+            logger.debug(f"No se pudo contactar a la API de XMRig ({XMRIG_API_URL}): {e}")
+            error_msg = str(e)
 
     # Si la petición falló, verificar si el proceso está detenido por el Watchdog (SIGSTOP)
     proc_state = check_xmrig_process_state()
@@ -180,12 +212,14 @@ def get_miner_metrics() -> Dict[str, Any]:
         if _LAST_VALID_METRICS:
             m = dict(_LAST_VALID_METRICS)
             m["status"] = "PAUSADO (Watchdog)"
+            m["enabled"] = True
             m["hashrate_10s"] = 0.0
             m["paused"] = True
-            m["raw_error"] = "Proceso pausado por control de carga"
+            m["raw_error"] = None
             return m
         return {
             "status": "PAUSADO (Watchdog)",
+            "enabled": True,
             "hashrate_10s": 0.0,
             "hashrate_60s": 0.0,
             "hashrate_15m": 0.0,
@@ -201,16 +235,17 @@ def get_miner_metrics() -> Dict[str, Any]:
             "threads": 8,
             "hugepages": "---",
             "paused": True,
-            "raw_error": "Proceso pausado por control de carga"
+            "raw_error": None
         }
 
-    # Si no es Linux y no hay conexión, fallback a mock para desarrollo
-    if sys.platform != "linux":
+    # Si no es Linux y no hay conexión, fallback a mock para desarrollo (si no se forzó INK_SCREEN_MOCK=0)
+    if sys.platform != "linux" and os.getenv("INK_SCREEN_MOCK") != "0":
         return get_mock_miner_metrics()
 
-    # Si no respondió y no está en SIGSTOP -> OFFLINE
+    # Si no respondió y no está en SIGSTOP -> Servicio APAGADO de forma nominal
     return {
-        "status": "OFFLINE",
+        "status": "APAGADO",
+        "enabled": False,
         "hashrate_10s": 0.0,
         "hashrate_60s": 0.0,
         "hashrate_15m": 0.0,

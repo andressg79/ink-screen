@@ -210,3 +210,19 @@ def test_set_screen_endpoint():
     res_err = client.post("/api/screen/pantalla_fantasma")
     assert res_err.status_code == 400
 
+def test_force_refresh_endpoint():
+    # Refresh con clean por defecto (True)
+    res = client.post("/api/refresh")
+    assert res.status_code == 200
+    assert state.force_refresh_event.is_set()
+    assert state.force_clear is True
+
+    state.force_clear = False
+    state.force_refresh_event.clear()
+
+    # Refresh con clean=False
+    res2 = client.post("/api/refresh?clean=false")
+    assert res2.status_code == 200
+    assert state.force_refresh_event.is_set()
+    assert state.force_clear is False
+
