@@ -23,6 +23,16 @@ class MinerScreen(BaseScreen):
         dur = duration if duration is not None else int(os.getenv("SCREEN_MINER_DURATION", "30"))
         super().__init__(name=self.name, title=self.title, duration=dur)
 
+    def is_enabled(self) -> bool:
+        """
+        Determina si la pantalla de minería debe rotar en el carrusel.
+        Si el minero está parado o deshabilitado deliberadamente, se omite automáticamente.
+        """
+        if not os.getenv("SCREEN_MINER_ENABLED", "1").lower() in ("1", "true", "yes"):
+            return False
+        metrics = get_miner_metrics()
+        return metrics.get("status") in ("MINANDO", "PAUSADO", "PAUSADO (Watchdog)")
+
     def fetch_data(self) -> Dict[str, Any]:
         """Recupera métricas del minero y del sistema."""
         miner_metrics = get_miner_metrics()
@@ -54,7 +64,7 @@ class MinerScreen(BaseScreen):
         # 2. BODY - DOS COLUMNAS (Y: 19 -> 127)
         draw.line([(142, 18), (142, 127)], fill=0, width=1)
 
-        status_text = miner_metrics.get("status", "OFFLINE").upper()
+        status_text = miner_metrics.get("status", "APAGADO").upper()
         soc_temp = system_metrics.get("temp", 0.0)
         temp_str = f"{soc_temp}°C"
 
@@ -68,8 +78,8 @@ class MinerScreen(BaseScreen):
 
         draw.text((6, 22), "HASH SPEED (10s):", font=font_s, fill=0)
 
-        if status_text == "OFFLINE":
-            draw.text((8, 35), "OFFLINE", font=font_l, fill=0)
+        if status_text in ("OFFLINE", "APAGADO"):
+            draw.text((8, 35), "APAGADO", font=font_l, fill=0)
         elif "PAUSADO" in status_text:
             draw.text((8, 35), "PAUSADO", font=font_l, fill=0)
         else:

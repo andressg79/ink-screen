@@ -81,3 +81,49 @@ def test_screen_manager_carousel_info():
     assert info["next_name"] == "miner"
     assert info["rotation_enabled"] is True
     assert info["is_forced"] is False
+
+def test_screen_manager_skips_disabled_screens():
+    class TestDisabledScreen(Screen):
+        def is_enabled(self):
+            return False
+
+    sm = ScreenManager()
+    s1 = Screen("system", "Sistema y Clima", 30)
+    s2 = TestDisabledScreen("miner", "Nodo Minero XMRig", 30)
+    s3 = Screen("calendar", "Agenda", 30)
+    sm.screens = [s1, s2, s3]
+
+    active = sm.get_active_screens()
+    assert len(active) == 2
+    assert [s.name for s in active] == ["system", "calendar"]
+
+    info = sm.get_carousel_info()
+    assert info["total_screens"] == 2
+    assert info["current_name"] == "system"
+    assert info["next_name"] == "calendar"
+
+    # Switch next should skip disabled s2 and go straight to s3 (calendar)
+    next_s = sm.switch_next()
+    assert next_s.name == "calendar"
+    
+    # Next switch wraps back to s1 (system)
+    back_s = sm.switch_next()
+    assert back_s.name == "system"
+
+def test_screen_manager_forced_screen_overrides_disabled():
+    class TestDisabledScreen(Screen):
+        def is_enabled(self):
+            return False
+
+    sm = ScreenManager()
+    s1 = Screen("system", "Sistema y Clima", 30)
+    s2 = TestDisabledScreen("miner", "Nodo Minero XMRig", 30)
+    sm.screens = [s1, s2]
+
+    # Force miner even though it is disabled
+    sm.set_forced_screen("miner")
+    curr = sm.get_current_screen()
+    assert curr.name == "miner"
+    info = sm.get_carousel_info()
+    assert info["current_name"] == "miner"
+    assert info["is_forced"] is True

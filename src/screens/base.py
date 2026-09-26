@@ -42,5 +42,13 @@ class BaseScreen(ABC):
         """
         pass
 
+    def is_enabled(self) -> bool:
+        """
+        Indica si la pantalla debe participar activamente en la rotación automática
+        del carrusel. Por defecto todas las pantallas están habilitadas a menos que
+        su módulo específico implemente una condición (ej. servicio subyacente apagado).
+        """
+        return True
+
     def __repr__(self):
         return f"<{self.__class__.__name__} name='{self.name}' duration={self.duration}s>"
